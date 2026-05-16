@@ -6,13 +6,19 @@ O bolao inteligente: app mobile de Copa do Mundo com grupos privados, rankings, 
 
 | Camada | Tecnologias |
 | ------ | ----------- |
-| Mobile | React Native, Expo, TypeScript |
+| Mobile | React Native, Expo, TypeScript, Supabase Auth |
+| API | Go, net/http |
 | Qualidade | ESLint, Prettier, Husky, Commitlint |
 
 ## Estrutura
 
 ```text
 palpitAI/
+├── backend/           # API em Go
+│   ├── cmd/api/
+│   ├── internal/
+│   ├── go.mod
+│   └── Makefile
 ├── frontend/          # App Expo React Native
 │   ├── App.tsx
 │   ├── index.ts
@@ -28,9 +34,29 @@ palpitAI/
 
 - Node.js
 - npm
+- Go 1.24+
 - Expo Go no dispositivo fisico, Android Emulator ou iOS Simulator
 
 ## Como rodar
+
+### Backend
+
+```bash
+cd backend
+cp .env.example .env
+make run
+```
+
+A API inicia em `http://localhost:3000`.
+
+Rotas iniciais:
+
+```text
+GET /health
+GET /api/v1/status
+```
+
+### Frontend
 
 Instale as dependencias:
 
@@ -38,6 +64,14 @@ Instale as dependencias:
 cd frontend
 npm install
 ```
+
+Configure o Supabase Auth:
+
+```bash
+cp .env.example .env
+```
+
+Preencha `EXPO_PUBLIC_SUPABASE_KEY` com a chave publica do projeto Supabase.
 
 Inicie o Metro Bundler:
 
@@ -92,4 +126,13 @@ npm run lint:fix
 npm run format
 npm run format:check
 npm run typecheck
+```
+
+## Scripts do backend
+
+```bash
+make run
+make test
+make fmt
+make vet
 ```

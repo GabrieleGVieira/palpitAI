@@ -1,0 +1,86 @@
+package httpapi
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/gabrielevieira/palpitai/backend/internal/config"
+)
+
+type fakeDB struct {
+	err error
+}
+
+func (db fakeDB) Ping(_ context.Context) error {
+	return db.err
+}
+
+func TestHealthHandler(t *testing.T) {
+	router := NewRouter(config.Config{Env: "test", Port: "3000"}, fakeDB{})
+	request := httptest.NewRequest(http.MethodGet, "/health", nil)
+	response := httptest.NewRecorder()
+
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, response.Code)
+	}
+
+	var payload map[string]string
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if payload["status"] != "ok" {
+		t.Fatalf("expected status ok, got %q", payload["status"])
+	}
+
+	if payload["database"] != "ok" {
+		t.Fatalf("expected database ok, got %q", payload["database"])
+	}
+}
+
+func TestHealthHandlerWhenDatabaseIsUnavailable(t *testing.T) {
+	router := NewRouter(config.Config{Env: "test", Port: "3000"}, fakeDB{err: errors.New("down")})
+	request := httptest.NewRequest(http.MethodGet, "/health", nil)
+	response := httptest.NewRecorder()
+
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected status %d, got %d", http.StatusServiceUnavailable, response.Code)
+	}
+}
+
+func TestStatusHandler(t *testing.T) {
+	router := NewRouter(config.Config{Env: "test", Port: "3000"}, fakeDB{})
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/status", nil)
+	response := httptest.NewRecorder()
+
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, response.Code)
+	}
+
+	var payload statusResponse
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if payload.App != "palpitai-api" {
+		t.Fatalf("expected app palpitai-api, got %q", payload.App)
+	}
+
+	if payload.Env != "test" {
+		t.Fatalf("expected env test, got %q", payload.Env)
+	}
+
+	if payload.Database != "ok" {
+		t.Fatalf("expected database ok, got %q", payload.Database)
+	}
+}
