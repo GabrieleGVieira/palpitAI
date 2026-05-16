@@ -1,0 +1,2 @@
+# palpitAI
+O bolão inteligente
