@@ -29,6 +29,11 @@ func main() {
 	}
 	defer db.Close()
 
+	if err := database.Migrate(startupCtx, db); err != nil {
+		logger.Error("database migration failed", "error", err)
+		os.Exit(1)
+	}
+
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           httpapi.NewRouter(cfg, db),

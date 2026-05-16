@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"github.com/gabrielevieira/palpitai/backend/internal/config"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type fakeDB struct {
@@ -17,6 +19,22 @@ type fakeDB struct {
 
 func (db fakeDB) Ping(_ context.Context) error {
 	return db.err
+}
+
+func (db fakeDB) Exec(_ context.Context, _ string, _ ...any) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, db.err
+}
+
+func (db fakeDB) QueryRow(_ context.Context, _ string, _ ...any) pgx.Row {
+	return fakeRow{err: db.err}
+}
+
+type fakeRow struct {
+	err error
+}
+
+func (row fakeRow) Scan(_ ...any) error {
+	return row.err
 }
 
 func TestHealthHandler(t *testing.T) {

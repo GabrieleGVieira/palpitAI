@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/gabrielevieira/palpitai/backend/internal/config"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type statusResponse struct {
@@ -17,20 +19,38 @@ type statusResponse struct {
 	Timestamp string `json:"timestamp"`
 }
 
-type databasePinger interface {
+type datastore interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
 	Ping(ctx context.Context) error
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
-func NewRouter(cfg config.Config, db databasePinger) http.Handler {
+func NewRouter(cfg config.Config, db datastore) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /health", healthHandler(db))
 	mux.HandleFunc("GET /api/v1/status", statusHandler(cfg, db))
+	mux.HandleFunc("POST /api/v1/groups", createGroupHandler(cfg, db))
 
-	return mux
+	return withCORS(mux)
 }
 
-func healthHandler(db databasePinger) http.HandlerFunc {
+func withCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func healthHandler(db datastore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if db == nil {
 			writeJSON(w, http.StatusServiceUnavailable, map[string]string{
@@ -55,7 +75,7 @@ func healthHandler(db databasePinger) http.HandlerFunc {
 	}
 }
 
-func statusHandler(cfg config.Config, db databasePinger) http.HandlerFunc {
+func statusHandler(cfg config.Config, db datastore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		databaseStatus := "ok"
 		responseStatus := "ok"

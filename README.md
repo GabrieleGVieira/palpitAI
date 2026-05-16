@@ -54,6 +54,7 @@ Rotas iniciais:
 ```text
 GET /health
 GET /api/v1/status
+POST /api/v1/groups
 ```
 
 ### Frontend
@@ -71,7 +72,7 @@ Configure o Supabase Auth:
 cp .env.example .env
 ```
 
-Preencha `EXPO_PUBLIC_SUPABASE_KEY` com a chave publica do projeto Supabase.
+Preencha `EXPO_PUBLIC_SUPABASE_KEY` com a chave publica do projeto Supabase e `EXPO_PUBLIC_API_URL` com a URL do backend.
 
 Inicie o Metro Bundler:
 

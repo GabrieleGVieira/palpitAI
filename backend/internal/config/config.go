@@ -6,6 +6,8 @@ type Config struct {
 	DatabaseURL string
 	Env         string
 	Port        string
+	SupabaseKey string
+	SupabaseURL string
 }
 
 func Load() Config {
@@ -13,6 +15,8 @@ func Load() Config {
 		DatabaseURL: getEnv("DATABASE_URL", ""),
 		Env:         getEnv("APP_ENV", "development"),
 		Port:        getEnv("PORT", "3000"),
+		SupabaseKey: getEnv("SUPABASE_KEY", ""),
+		SupabaseURL: getEnv("SUPABASE_URL", ""),
 	}
 }
 
