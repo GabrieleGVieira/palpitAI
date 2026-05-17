@@ -28,9 +28,48 @@ func Migrate(ctx context.Context, db *pgxpool.Pool) error {
 			group_id uuid not null references groups(id) on delete cascade,
 			user_id uuid not null,
 			role text not null check (role in ('owner', 'member')),
+			status text not null default 'active',
 			joined_at timestamptz not null default now(),
 			primary key (group_id, user_id)
 		);
+
+		alter table group_members
+			add column if not exists status text not null default 'active';
+
+		update group_members set status = 'active' where status = '';
+
+		create table if not exists world_cup_matches (
+			id uuid primary key default gen_random_uuid(),
+			home_team text not null,
+			away_team text not null,
+			stage text not null,
+			kickoff_at timestamptz not null,
+			created_at timestamptz not null default now(),
+			unique (home_team, away_team, kickoff_at)
+		);
+
+		create table if not exists predictions (
+			group_id uuid not null references groups(id) on delete cascade,
+			match_id uuid not null references world_cup_matches(id) on delete cascade,
+			user_id uuid not null,
+			home_score integer not null check (home_score >= 0 and home_score <= 99),
+			away_score integer not null check (away_score >= 0 and away_score <= 99),
+			created_at timestamptz not null default now(),
+			updated_at timestamptz not null default now(),
+			primary key (group_id, match_id, user_id)
+		);
+
+		insert into world_cup_matches (home_team, away_team, stage, kickoff_at)
+		values
+			('Brasil', 'Argentina', 'Fase de grupos', '2026-06-12 16:00:00+00'),
+			('Brasil', 'Alemanha', 'Fase de grupos', '2026-06-16 19:00:00+00'),
+			('Brasil', 'Franca', 'Fase de grupos', '2026-06-21 22:00:00+00'),
+			('Portugal', 'Espanha', 'Fase de grupos', '2026-06-13 18:00:00+00'),
+			('Inglaterra', 'Holanda', 'Fase de grupos', '2026-06-17 21:00:00+00'),
+			('Estados Unidos', 'Mexico', 'Fase de grupos', '2026-06-18 00:00:00+00'),
+			('Uruguai', 'Colombia', 'Fase de grupos', '2026-06-22 19:00:00+00'),
+			('Japao', 'Coreia do Sul', 'Fase de grupos', '2026-06-23 16:00:00+00')
+		on conflict (home_team, away_team, kickoff_at) do nothing;
 	`)
 
 	return err

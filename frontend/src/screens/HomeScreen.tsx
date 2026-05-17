@@ -13,7 +13,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../hooks/useAuth';
-import { joinGroup, listGroups, type Group } from '../services/groups';
+import {
+  approveJoinRequest,
+  joinGroup,
+  listGroups,
+  listJoinRequests,
+  type Group,
+  type JoinRequest,
+} from '../services/groups';
 
 type HomeScreenProps = {
   onCreateGroup: () => void;
@@ -27,7 +34,10 @@ export function HomeScreen({ onCreateGroup }: HomeScreenProps) {
   const [groupsError, setGroupsError] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState('');
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [joinSuccess, setJoinSuccess] = useState<string | null>(null);
   const [isJoiningGroup, setIsJoiningGroup] = useState(false);
+  const [joinRequestsByGroup, setJoinRequestsByGroup] = useState<Record<string, JoinRequest[]>>({});
+  const [approvingRequestID, setApprovingRequestID] = useState<string | null>(null);
 
   const loadGroups = useCallback(async () => {
     setGroupsError(null);
@@ -36,6 +46,7 @@ export function HomeScreen({ onCreateGroup }: HomeScreenProps) {
     try {
       const nextGroups = await listGroups();
       setGroups(nextGroups);
+      await loadJoinRequests(nextGroups);
     } catch (error) {
       setGroupsError(
         error instanceof Error ? error.message : 'Nao foi possivel carregar seus grupos.',
@@ -45,12 +56,24 @@ export function HomeScreen({ onCreateGroup }: HomeScreenProps) {
     }
   }, []);
 
+  async function loadJoinRequests(nextGroups: Group[]) {
+    const ownerGroups = nextGroups.filter(
+      (group) => group.role === 'owner' && group.pending_requests_count > 0,
+    );
+    const entries = await Promise.all(
+      ownerGroups.map(async (group) => [group.id, await listJoinRequests(group.id)] as const),
+    );
+
+    setJoinRequestsByGroup(Object.fromEntries(entries));
+  }
+
   useEffect(() => {
     loadGroups();
   }, [loadGroups]);
 
   async function handleJoinGroup() {
     setJoinError(null);
+    setJoinSuccess(null);
 
     if (!inviteCode.trim()) {
       setJoinError('Informe o codigo do grupo.');
@@ -60,13 +83,34 @@ export function HomeScreen({ onCreateGroup }: HomeScreenProps) {
     setIsJoiningGroup(true);
 
     try {
-      await joinGroup(inviteCode);
+      const response = await joinGroup(inviteCode);
       setInviteCode('');
+      setJoinSuccess(
+        response.membership_status === 'pending'
+          ? 'Solicitacao enviada. Aguarde a aprovacao do dono do grupo.'
+          : 'Voce entrou no grupo.',
+      );
       await loadGroups();
     } catch (error) {
       setJoinError(error instanceof Error ? error.message : 'Nao foi possivel entrar no grupo.');
     } finally {
       setIsJoiningGroup(false);
+    }
+  }
+
+  async function handleApproveJoinRequest(groupID: string, request: JoinRequest) {
+    setApprovingRequestID(`${groupID}:${request.user_id}`);
+    setGroupsError(null);
+
+    try {
+      await approveJoinRequest(groupID, request.user_id);
+      await loadGroups();
+    } catch (error) {
+      setGroupsError(
+        error instanceof Error ? error.message : 'Nao foi possivel aprovar a solicitacao.',
+      );
+    } finally {
+      setApprovingRequestID(null);
     }
   }
 
@@ -122,6 +166,7 @@ export function HomeScreen({ onCreateGroup }: HomeScreenProps) {
           </View>
 
           {joinError ? <Text style={styles.errorText}>{joinError}</Text> : null}
+          {joinSuccess ? <Text style={styles.successText}>{joinSuccess}</Text> : null}
         </View>
 
         <View style={styles.groupsSection}>
@@ -178,6 +223,35 @@ export function HomeScreen({ onCreateGroup }: HomeScreenProps) {
                   ? 'Todos os jogos da Copa'
                   : `Selecoes: ${group.selected_teams.join(', ')}`}
               </Text>
+
+              {group.role === 'owner' && group.pending_requests_count > 0 ? (
+                <View style={styles.requestsBox}>
+                  <Text style={styles.requestsTitle}>Solicitacoes pendentes</Text>
+                  {(joinRequestsByGroup[group.id] ?? []).map((request) => {
+                    const requestID = `${group.id}:${request.user_id}`;
+                    const isApproving = approvingRequestID === requestID;
+
+                    return (
+                      <View key={request.user_id} style={styles.requestRow}>
+                        <View style={styles.requestInfo}>
+                          <Text style={styles.requestUser}>
+                            Usuario {request.user_id.slice(0, 8)}
+                          </Text>
+                          <Text style={styles.requestMeta}>Aguardando aprovacao</Text>
+                        </View>
+                        <Pressable
+                          disabled={isApproving}
+                          onPress={() => handleApproveJoinRequest(group.id, request)}
+                          style={[styles.approveButton, isApproving && styles.buttonDisabled]}>
+                          <Text style={styles.approveButtonText}>
+                            {isApproving ? 'Aprovando...' : 'Aprovar'}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
             </View>
           ))}
         </View>
@@ -388,6 +462,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  successText: {
+    color: '#1f7a4a',
+    fontSize: 13,
+    lineHeight: 18,
+  },
   emptyBox: {
     backgroundColor: '#ffffff',
     borderColor: '#cfe0c9',
@@ -462,6 +541,50 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     marginTop: 12,
+  },
+  requestsBox: {
+    borderTopColor: '#edf3e8',
+    borderTopWidth: 1,
+    gap: 10,
+    marginTop: 14,
+    paddingTop: 14,
+  },
+  requestsTitle: {
+    color: '#123d2a',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  requestRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  requestInfo: {
+    flex: 1,
+  },
+  requestUser: {
+    color: '#183f2d',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  requestMeta: {
+    color: '#486654',
+    fontSize: 12,
+    marginTop: 3,
+  },
+  approveButton: {
+    alignItems: 'center',
+    backgroundColor: '#1f7a4a',
+    borderRadius: 8,
+    justifyContent: 'center',
+    minHeight: 38,
+    paddingHorizontal: 12,
+  },
+  approveButtonText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
   },
   actions: {
     gap: 12,

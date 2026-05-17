@@ -45,8 +45,20 @@ type groupResponse struct {
 
 type groupListItemResponse struct {
 	groupResponse
-	MemberCount int    `json:"member_count"`
-	Role        string `json:"role"`
+	MemberCount          int    `json:"member_count"`
+	PendingRequestsCount int    `json:"pending_requests_count"`
+	Role                 string `json:"role"`
+	Status               string `json:"status"`
+}
+
+type joinGroupResponse struct {
+	Group            groupListItemResponse `json:"group"`
+	MembershipStatus string                `json:"membership_status"`
+}
+
+type joinRequestResponse struct {
+	RequestedAt time.Time `json:"requested_at"`
+	UserID      string    `json:"user_id"`
 }
 
 func listGroupsHandler(cfg config.Config, db datastore) http.HandlerFunc {
@@ -119,7 +131,7 @@ func joinGroupHandler(cfg config.Config, db datastore) http.HandlerFunc {
 			return
 		}
 
-		group, err := joinGroup(r.Context(), db, userID, inviteCode)
+		response, err := joinGroup(r.Context(), db, userID, inviteCode)
 		if err != nil {
 			switch {
 			case errors.Is(err, errGroupNotFound):
@@ -132,7 +144,53 @@ func joinGroupHandler(cfg config.Config, db datastore) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, group)
+		writeJSON(w, http.StatusOK, response)
+	}
+}
+
+func listJoinRequestsHandler(cfg config.Config, db datastore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := userIDFromRequest(r, cfg)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "Informe um token de autenticacao valido.")
+			return
+		}
+
+		requests, err := listJoinRequests(r.Context(), db, userID, r.PathValue("groupID"))
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Nao foi possivel listar as solicitacoes.")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string][]joinRequestResponse{
+			"requests": requests,
+		})
+	}
+}
+
+func approveJoinRequestHandler(cfg config.Config, db datastore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID, err := userIDFromRequest(r, cfg)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "Informe um token de autenticacao valido.")
+			return
+		}
+
+		if err := approveJoinRequest(r.Context(), db, ownerID, r.PathValue("groupID"), r.PathValue("userID")); err != nil {
+			switch {
+			case errors.Is(err, errGroupNotFound):
+				writeError(w, http.StatusNotFound, "Solicitacao nao encontrada.")
+			case errors.Is(err, errGroupFull):
+				writeError(w, http.StatusConflict, "Este grupo atingiu o limite de participantes.")
+			default:
+				writeError(w, http.StatusInternalServerError, "Nao foi possivel aprovar a solicitacao.")
+			}
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]string{
+			"status": "approved",
+		})
 	}
 }
 
@@ -155,10 +213,13 @@ func listGroups(ctx context.Context, db datastore, userID string) ([]groupListIt
 			g.invite_code,
 			g.created_at,
 			gm.role,
-			count(all_members.user_id)::int as member_count
+			gm.status,
+			count(distinct all_members.user_id)::int as member_count,
+			count(distinct pending_members.user_id)::int as pending_requests_count
 		from groups g
-		join group_members gm on gm.group_id = g.id and gm.user_id = $1
-		left join group_members all_members on all_members.group_id = g.id
+		join group_members gm on gm.group_id = g.id and gm.user_id = $1 and gm.status = 'active'
+		left join group_members all_members on all_members.group_id = g.id and all_members.status = 'active'
+		left join group_members pending_members on pending_members.group_id = g.id and pending_members.status = 'pending'
 		group by
 			g.id,
 			g.owner_id,
@@ -170,7 +231,8 @@ func listGroups(ctx context.Context, db datastore, userID string) ([]groupListIt
 			g.is_private,
 			g.invite_code,
 			g.created_at,
-			gm.role
+			gm.role,
+			gm.status
 		order by g.created_at desc
 	`, userID)
 	if err != nil {
@@ -193,7 +255,9 @@ func listGroups(ctx context.Context, db datastore, userID string) ([]groupListIt
 			&group.InviteCode,
 			&group.CreatedAt,
 			&group.Role,
+			&group.Status,
 			&group.MemberCount,
+			&group.PendingRequestsCount,
 		); err != nil {
 			return nil, err
 		}
@@ -208,21 +272,117 @@ func listGroups(ctx context.Context, db datastore, userID string) ([]groupListIt
 	return groups, nil
 }
 
-func joinGroup(ctx context.Context, db datastore, userID string, inviteCode string) (groupListItemResponse, error) {
+func joinGroup(ctx context.Context, db datastore, userID string, inviteCode string) (joinGroupResponse, error) {
 	var groupID string
+	var isPrivate bool
 	var participantLimit *int
 	var memberCount int
 
 	err := db.QueryRow(ctx, `
 		select
 			g.id,
+			g.is_private,
 			g.participant_limit,
 			count(gm.user_id)::int as member_count
 		from groups g
-		left join group_members gm on gm.group_id = g.id
+		left join group_members gm on gm.group_id = g.id and gm.status = 'active'
 		where g.invite_code = $1
-		group by g.id, g.participant_limit
-	`, inviteCode).Scan(&groupID, &participantLimit, &memberCount)
+		group by g.id, g.is_private, g.participant_limit
+	`, inviteCode).Scan(&groupID, &isPrivate, &participantLimit, &memberCount)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return joinGroupResponse{}, errGroupNotFound
+	}
+	if err != nil {
+		return joinGroupResponse{}, err
+	}
+
+	var currentStatus string
+	err = db.QueryRow(ctx, `
+		select status from group_members where group_id = $1 and user_id = $2
+	`, groupID, userID).Scan(&currentStatus)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return joinGroupResponse{}, err
+	}
+	if currentStatus == "pending" {
+		group, err := groupByID(ctx, db, groupID, userID, "member", "pending")
+		return joinGroupResponse{Group: group, MembershipStatus: "pending"}, err
+	}
+	if currentStatus == "active" {
+		group, err := groupByID(ctx, db, groupID, userID, "member", "active")
+		return joinGroupResponse{Group: group, MembershipStatus: "active"}, err
+	}
+
+	if participantLimit != nil && memberCount >= *participantLimit {
+		return joinGroupResponse{}, errGroupFull
+	}
+
+	nextStatus := "active"
+	if isPrivate {
+		nextStatus = "pending"
+	}
+
+	if _, err := db.Exec(ctx, `
+		insert into group_members (group_id, user_id, role, status)
+		values ($1, $2, 'member', $3)
+		on conflict (group_id, user_id) do nothing
+	`, groupID, userID, nextStatus); err != nil {
+		return joinGroupResponse{}, err
+	}
+
+	group, err := groupByID(ctx, db, groupID, userID, "member", nextStatus)
+	if err != nil {
+		return joinGroupResponse{}, err
+	}
+
+	return joinGroupResponse{Group: group, MembershipStatus: nextStatus}, nil
+}
+
+func groupByID(ctx context.Context, db datastore, groupID string, userID string, role string, status string) (groupListItemResponse, error) {
+	var group groupListItemResponse
+
+	err := db.QueryRow(ctx, `
+		select
+			g.id,
+			g.owner_id,
+			g.name,
+			g.description,
+			g.match_scope,
+			g.selected_teams,
+			g.participant_limit,
+			g.is_private,
+			g.invite_code,
+			g.created_at,
+			count(distinct all_members.user_id)::int as member_count,
+			count(distinct pending_members.user_id)::int as pending_requests_count
+		from groups g
+		left join group_members all_members on all_members.group_id = g.id and all_members.status = 'active'
+		left join group_members pending_members on pending_members.group_id = g.id and pending_members.status = 'pending'
+		where g.id = $1
+		group by
+			g.id,
+			g.owner_id,
+			g.name,
+			g.description,
+			g.match_scope,
+			g.selected_teams,
+			g.participant_limit,
+			g.is_private,
+			g.invite_code,
+			g.created_at
+	`, groupID).Scan(
+		&group.ID,
+		&group.OwnerID,
+		&group.Name,
+		&group.Description,
+		&group.MatchScope,
+		&group.SelectedTeams,
+		&group.ParticipantLimit,
+		&group.IsPrivate,
+		&group.InviteCode,
+		&group.CreatedAt,
+		&group.MemberCount,
+		&group.PendingRequestsCount,
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return groupListItemResponse{}, errGroupNotFound
 	}
@@ -230,41 +390,86 @@ func joinGroup(ctx context.Context, db datastore, userID string, inviteCode stri
 		return groupListItemResponse{}, err
 	}
 
-	if participantLimit != nil && memberCount >= *participantLimit {
-		var alreadyMember bool
-		if err := db.QueryRow(ctx, `
-			select exists (
-				select 1 from group_members where group_id = $1 and user_id = $2
-			)
-		`, groupID, userID).Scan(&alreadyMember); err != nil {
-			return groupListItemResponse{}, err
-		}
+	group.Role = role
+	group.Status = status
 
-		if !alreadyMember {
-			return groupListItemResponse{}, errGroupFull
-		}
+	if group.OwnerID == userID {
+		group.Role = "owner"
 	}
 
-	if _, err := db.Exec(ctx, `
-		insert into group_members (group_id, user_id, role)
-		values ($1, $2, 'member')
-		on conflict (group_id, user_id) do nothing
-	`, groupID, userID); err != nil {
-		return groupListItemResponse{}, err
-	}
+	return group, nil
+}
 
-	groups, err := listGroups(ctx, db, userID)
+func listJoinRequests(ctx context.Context, db datastore, ownerID string, groupID string) ([]joinRequestResponse, error) {
+	rows, err := db.Query(ctx, `
+		select
+			gm.user_id,
+			gm.joined_at
+		from group_members gm
+		join groups g on g.id = gm.group_id
+		where gm.group_id = $1
+			and g.owner_id = $2
+			and gm.status = 'pending'
+		order by gm.joined_at asc
+	`, groupID, ownerID)
 	if err != nil {
-		return groupListItemResponse{}, err
+		return nil, err
 	}
+	defer rows.Close()
 
-	for _, group := range groups {
-		if group.ID == groupID {
-			return group, nil
+	requests := []joinRequestResponse{}
+	for rows.Next() {
+		var request joinRequestResponse
+		if err := rows.Scan(&request.UserID, &request.RequestedAt); err != nil {
+			return nil, err
 		}
+
+		requests = append(requests, request)
 	}
 
-	return groupListItemResponse{}, errGroupNotFound
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return requests, nil
+}
+
+func approveJoinRequest(ctx context.Context, db datastore, ownerID string, groupID string, requesterID string) error {
+	var participantLimit *int
+	var memberCount int
+
+	err := db.QueryRow(ctx, `
+		select
+			g.participant_limit,
+			count(gm.user_id)::int as member_count
+		from groups g
+		left join group_members gm on gm.group_id = g.id and gm.status = 'active'
+		where g.id = $1 and g.owner_id = $2
+		group by g.id, g.participant_limit
+	`, groupID, ownerID).Scan(&participantLimit, &memberCount)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return errGroupNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	if participantLimit != nil && memberCount >= *participantLimit {
+		return errGroupFull
+	}
+
+	var approvedGroupID string
+	err = db.QueryRow(ctx, `
+		update group_members
+		set status = 'active', joined_at = now()
+		where group_id = $1 and user_id = $2 and status = 'pending'
+		returning group_id
+	`, groupID, requesterID).Scan(&approvedGroupID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return errGroupNotFound
+	}
+
+	return err
 }
 
 func normalizeCreateGroupRequest(request createGroupRequest) (createGroupRequest, error) {

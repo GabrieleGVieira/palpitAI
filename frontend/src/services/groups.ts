@@ -23,8 +23,15 @@ export type Group = {
   name: string;
   owner_id: string;
   participant_limit: number | null;
+  pending_requests_count: number;
   role: string;
   selected_teams: string[];
+  status: string;
+};
+
+export type JoinRequest = {
+  requested_at: string;
+  user_id: string;
 };
 
 type APIError = {
@@ -35,6 +42,15 @@ type ListGroupsResponse = {
   groups: Group[];
 };
 
+type ListJoinRequestsResponse = {
+  requests: JoinRequest[];
+};
+
+type JoinGroupResponse = {
+  group: Group;
+  membership_status: string;
+};
+
 async function readJSONResponse(response: Response) {
   const responseText = await response.text();
 
@@ -43,7 +59,12 @@ async function readJSONResponse(response: Response) {
   }
 
   try {
-    return JSON.parse(responseText) as Group | ListGroupsResponse | APIError;
+    return JSON.parse(responseText) as
+      | Group
+      | JoinGroupResponse
+      | ListGroupsResponse
+      | ListJoinRequestsResponse
+      | APIError;
   } catch {
     throw new Error(`A API respondeu em formato inesperado: ${responseText}`);
   }
@@ -82,7 +103,27 @@ export async function joinGroup(inviteCode: string) {
     'Nao foi possivel entrar no grupo.',
   );
 
-  return data as Group;
+  return data as JoinGroupResponse;
+}
+
+export async function listJoinRequests(groupID: string) {
+  const data = await requestAPI(
+    `/api/v1/groups/${groupID}/join-requests`,
+    undefined,
+    'Nao foi possivel carregar as solicitacoes.',
+  );
+
+  return (data as ListJoinRequestsResponse).requests;
+}
+
+export async function approveJoinRequest(groupID: string, userID: string) {
+  await requestAPI(
+    `/api/v1/groups/${groupID}/join-requests/${userID}/approve`,
+    {
+      method: 'POST',
+    },
+    'Nao foi possivel aprovar a solicitacao.',
+  );
 }
 
 async function requestAPI(path: string, init: RequestInit | undefined, fallbackError: string) {
