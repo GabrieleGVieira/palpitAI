@@ -12,9 +12,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { NotificationBanner } from '../components/NotificationBanner';
 import { useAuth } from '../hooks/useAuth';
 import { getUserScore, joinGroup, listGroups, type Group } from '../services/groups';
 import { connectRealtime } from '../services/realtime';
+import { notificationMessageFromEvent } from '../utils/realtimeNotifications';
 
 type HomeScreenProps = {
   onCreateGroup: () => void;
@@ -34,6 +36,7 @@ export function HomeScreen({ onCreateGroup, onOpenGroup }: HomeScreenProps) {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joinSuccess, setJoinSuccess] = useState<string | null>(null);
   const [isJoiningGroup, setIsJoiningGroup] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
 
   const loadGroups = useCallback(async () => {
     setGroupsError(null);
@@ -82,6 +85,7 @@ export function HomeScreen({ onCreateGroup, onOpenGroup }: HomeScreenProps) {
     connectRealtime({
       onEvent: (event) => {
         if (event.name === 'ranking.updated' || event.name === 'match.finished') {
+          setNotificationMessage(notificationMessageFromEvent(event));
           void refreshHome();
         }
       },
@@ -102,6 +106,15 @@ export function HomeScreen({ onCreateGroup, onOpenGroup }: HomeScreenProps) {
       cleanup?.();
     };
   }, [refreshHome]);
+
+  useEffect(() => {
+    if (!notificationMessage) {
+      return;
+    }
+
+    const timer = setTimeout(() => setNotificationMessage(null), 5000);
+    return () => clearTimeout(timer);
+  }, [notificationMessage]);
 
   async function handleJoinGroup() {
     setJoinError(null);
@@ -165,6 +178,8 @@ export function HomeScreen({ onCreateGroup, onOpenGroup }: HomeScreenProps) {
           </View>
           <Text style={styles.scoreValue}>{isLoadingScore ? '...' : totalPoints}</Text>
         </View>
+
+        <NotificationBanner message={notificationMessage} />
 
         {scoreError ? <Text style={styles.errorText}>{scoreError}</Text> : null}
 

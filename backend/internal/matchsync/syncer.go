@@ -29,6 +29,7 @@ const (
 
 type datastore interface {
 	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
@@ -175,6 +176,11 @@ type matchSnapshot struct {
 	Status    string
 }
 
+type affectedGroup struct {
+	ID   string
+	Name string
+}
+
 func New(cfg config.Config, db datastore, logger *slog.Logger) (*Syncer, bool) {
 	if strings.TrimSpace(cfg.FootballDataToken) == "" {
 		return nil, false
@@ -297,13 +303,15 @@ func (syncer *Syncer) SyncOnce(ctx context.Context, kind syncKind) (Summary, err
 		summary.CreatedEvents += createdEvents
 
 		if match.HomeScore != nil && match.AwayScore != nil && (match.Status == "live" || match.Status == "finished") {
-			scoredPredictions, err := syncer.scorePredictions(ctx, match)
+			scoredPredictions, err := syncer.scorePredictions(ctx, matchID, match)
 			if err != nil {
 				return Summary{}, err
 			}
 
 			if scoredPredictions > 0 && changedRows > 0 {
-				syncer.publishRankingChanged(ctx, match)
+				if err := syncer.publishRankingChanged(ctx, matchID, match); err != nil {
+					return Summary{}, err
+				}
 			}
 
 			summary.ScoredPredictions += scoredPredictions
@@ -576,7 +584,7 @@ func (syncer *Syncer) syncGoals(ctx context.Context, matchID string, match provi
 	return created, nil
 }
 
-func (syncer *Syncer) scorePredictions(ctx context.Context, match providerMatch) (int, error) {
+func (syncer *Syncer) scorePredictions(ctx context.Context, matchID string, match providerMatch) (int, error) {
 	if match.HomeScore == nil || match.AwayScore == nil {
 		return 0, errors.New("cannot score predictions without match score")
 	}
@@ -585,23 +593,21 @@ func (syncer *Syncer) scorePredictions(ctx context.Context, match providerMatch)
 		update predictions p
 		set
 			points = case
-				when p.home_score = $4 and p.away_score = $5 then 10
-				when sign(p.home_score - p.away_score) = sign($4 - $5) then 5
+				when p.home_score = $2 and p.away_score = $3 then 10
+				when sign(p.home_score - p.away_score) = sign($2 - $3) then 5
 				else 0
 			end,
 			scored_at = now(),
 			updated_at = now()
 		from world_cup_matches m
 		where p.match_id = m.id
-			and m.home_team = $1
-			and m.away_team = $2
-			and m.kickoff_at = $3
+			and m.id = $1
 			and p.points is distinct from case
-				when p.home_score = $4 and p.away_score = $5 then 10
-				when sign(p.home_score - p.away_score) = sign($4 - $5) then 5
+				when p.home_score = $2 and p.away_score = $3 then 10
+				when sign(p.home_score - p.away_score) = sign($2 - $3) then 5
 				else 0
 			end
-	`, match.HomeTeam, match.AwayTeam, match.KickoffAt, *match.HomeScore, *match.AwayScore)
+	`, matchID, *match.HomeScore, *match.AwayScore)
 	if err != nil {
 		return 0, err
 	}
@@ -617,6 +623,7 @@ func (syncer *Syncer) publishMatchChanged(ctx context.Context, previous matchSna
 		"home_score":      match.HomeScore,
 		"home_team":       match.HomeTeam,
 		"kickoff_at":      match.KickoffAt,
+		"message":         resultMessage(match.HomeTeam, match.AwayTeam, match.HomeScore, match.AwayScore),
 		"previous_score":  scorePair(previous.HomeScore, previous.AwayScore),
 		"previous_status": previous.Status,
 		"status":          match.Status,
@@ -637,17 +644,67 @@ func (syncer *Syncer) publishMatchChanged(ctx context.Context, previous matchSna
 	}
 }
 
-func (syncer *Syncer) publishRankingChanged(ctx context.Context, match providerMatch) {
-	syncer.publisher.Publish(ctx, Event{
-		Name: "ranking.updated",
-		Payload: map[string]any{
+func (syncer *Syncer) publishRankingChanged(ctx context.Context, matchID string, match providerMatch) error {
+	groups, err := syncer.affectedGroups(ctx, matchID)
+	if err != nil {
+		return err
+	}
+
+	for _, group := range groups {
+		payload := map[string]any{
 			"away_score": match.AwayScore,
 			"away_team":  match.AwayTeam,
+			"group_id":   group.ID,
+			"group_name": group.Name,
 			"home_score": match.HomeScore,
 			"home_team":  match.HomeTeam,
-		},
-		Room: "rankings",
-	})
+			"match_id":   matchID,
+			"message":    "Ranking do grupo " + group.Name + " atualizado",
+		}
+
+		syncer.publisher.Publish(ctx, Event{
+			Name:    "ranking.updated",
+			Payload: payload,
+			Room:    "rankings",
+		})
+		syncer.publisher.Publish(ctx, Event{
+			Name:    "ranking.updated",
+			Payload: payload,
+			Room:    "group:" + group.ID,
+		})
+	}
+
+	return nil
+}
+
+func (syncer *Syncer) affectedGroups(ctx context.Context, matchID string) ([]affectedGroup, error) {
+	rows, err := syncer.db.Query(ctx, `
+		select distinct g.id::text, g.name
+		from groups g
+		join predictions p on p.group_id = g.id
+		where p.match_id = $1
+		order by g.name asc
+	`, matchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	groups := []affectedGroup{}
+	for rows.Next() {
+		var group affectedGroup
+		if err := rows.Scan(&group.ID, &group.Name); err != nil {
+			return nil, err
+		}
+
+		groups = append(groups, group)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return groups, nil
 }
 
 func fromFootballData(match footballDataMatch) providerMatch {
@@ -795,4 +852,12 @@ func intPointerString(value *int) string {
 	}
 
 	return strconv.Itoa(*value)
+}
+
+func resultMessage(homeTeam string, awayTeam string, homeScore *int, awayScore *int) string {
+	if homeScore == nil || awayScore == nil {
+		return homeTeam + " x " + awayTeam + " - resultado final lancado"
+	}
+
+	return fmt.Sprintf("%s %dx%d %s - resultado final lancado", homeTeam, *homeScore, *awayScore, awayTeam)
 }

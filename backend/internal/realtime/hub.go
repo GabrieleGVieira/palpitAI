@@ -69,8 +69,10 @@ func (hub *Hub) ServeWS(w http.ResponseWriter, r *http.Request, userID string, r
 	}
 
 	nextClient.rooms["matches"] = struct{}{}
-	nextClient.rooms["rankings"] = struct{}{}
 	nextClient.rooms["user:"+userID] = struct{}{}
+	if len(rooms) == 0 {
+		nextClient.rooms["rankings"] = struct{}{}
+	}
 	for _, room := range rooms {
 		if room != "" {
 			nextClient.rooms[room] = struct{}{}

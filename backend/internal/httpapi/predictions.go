@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gabrielevieira/palpitai/backend/internal/config"
@@ -48,6 +49,16 @@ type rankingEntryResponse struct {
 	Position    int    `json:"position"`
 	TotalPoints int    `json:"total_points"`
 	UserID      string `json:"user_id"`
+}
+
+type matchDetails struct {
+	AwayTeam string
+	HomeTeam string
+}
+
+type groupSummary struct {
+	ID   string
+	Name string
 }
 
 var (
@@ -193,27 +204,48 @@ func saveMatchResultHandler(cfg config.Config, db datastore, publisher realtimeP
 		}
 
 		if publisher != nil {
+			details, _ := matchDetailsByID(r.Context(), db, r.PathValue("matchID"))
+			groups, _ := groupsAffectedByMatch(r.Context(), db, r.PathValue("matchID"))
+			resultMessage := formatResultMessage(details.HomeTeam, details.AwayTeam, request.HomeScore, request.AwayScore)
+
 			publisher.Publish(r.Context(), matchsync.Event{
 				Name: "match.finished",
 				Payload: map[string]any{
 					"away_score": request.AwayScore,
+					"away_team":  details.AwayTeam,
 					"home_score": request.HomeScore,
+					"home_team":  details.HomeTeam,
 					"match_id":   r.PathValue("matchID"),
+					"message":    resultMessage,
 					"status":     "finished",
 				},
 				Room: "matches",
 			})
 
 			if scoredPredictions > 0 {
-				publisher.Publish(r.Context(), matchsync.Event{
-					Name: "ranking.updated",
-					Payload: map[string]any{
+				for _, group := range groups {
+					payload := map[string]any{
 						"away_score": request.AwayScore,
+						"away_team":  details.AwayTeam,
+						"group_id":   group.ID,
+						"group_name": group.Name,
 						"home_score": request.HomeScore,
+						"home_team":  details.HomeTeam,
 						"match_id":   r.PathValue("matchID"),
-					},
-					Room: "rankings",
-				})
+						"message":    "Ranking do grupo " + group.Name + " atualizado",
+					}
+
+					publisher.Publish(r.Context(), matchsync.Event{
+						Name:    "ranking.updated",
+						Payload: payload,
+						Room:    "rankings",
+					})
+					publisher.Publish(r.Context(), matchsync.Event{
+						Name:    "ranking.updated",
+						Payload: payload,
+						Room:    "group:" + group.ID,
+					})
+				}
 			}
 		}
 
@@ -376,6 +408,50 @@ func groupRanking(ctx context.Context, db datastore, userID string, groupID stri
 	return ranking, nil
 }
 
+func matchDetailsByID(ctx context.Context, db datastore, matchID string) (matchDetails, error) {
+	var details matchDetails
+	err := db.QueryRow(ctx, `
+		select home_team, away_team
+		from world_cup_matches
+		where id = $1
+	`, matchID).Scan(&details.HomeTeam, &details.AwayTeam)
+	if err != nil {
+		return matchDetails{}, err
+	}
+
+	return details, nil
+}
+
+func groupsAffectedByMatch(ctx context.Context, db datastore, matchID string) ([]groupSummary, error) {
+	rows, err := db.Query(ctx, `
+		select distinct g.id::text, g.name
+		from groups g
+		join predictions p on p.group_id = g.id
+		where p.match_id = $1
+		order by g.name asc
+	`, matchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	groups := []groupSummary{}
+	for rows.Next() {
+		var group groupSummary
+		if err := rows.Scan(&group.ID, &group.Name); err != nil {
+			return nil, err
+		}
+
+		groups = append(groups, group)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return groups, nil
+}
+
 func savePrediction(ctx context.Context, db datastore, userID string, groupID string, matchID string, request predictionRequest) (predictionResponse, error) {
 	if err := ensureActiveGroupMember(ctx, db, userID, groupID); err != nil {
 		return predictionResponse{}, err
@@ -454,12 +530,25 @@ func saveMatchResult(ctx context.Context, db datastore, matchID string, request 
 			scored_at = now(),
 			updated_at = now()
 		where match_id = $1
+			and points is distinct from case
+				when home_score = $2 and away_score = $3 then 10
+				when sign(home_score - away_score) = sign($2 - $3) then 5
+				else 0
+			end
 	`, matchID, request.HomeScore, request.AwayScore)
 	if err != nil {
 		return 0, err
 	}
 
 	return int(commandTag.RowsAffected()), nil
+}
+
+func formatResultMessage(homeTeam string, awayTeam string, homeScore int, awayScore int) string {
+	if homeTeam == "" || awayTeam == "" {
+		return "Resultado final lancado"
+	}
+
+	return homeTeam + " " + strconv.Itoa(homeScore) + "x" + strconv.Itoa(awayScore) + " " + awayTeam + " - resultado final lancado"
 }
 
 func ensureActiveGroupMember(ctx context.Context, db datastore, userID string, groupID string) error {

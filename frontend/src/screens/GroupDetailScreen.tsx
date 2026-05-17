@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { NotificationBanner } from '../components/NotificationBanner';
 import {
   listGroupMatches,
   listGroupRanking,
@@ -20,6 +21,7 @@ import {
   type RankingEntry,
 } from '../services/groups';
 import { connectRealtime } from '../services/realtime';
+import { notificationMessageFromEvent } from '../utils/realtimeNotifications';
 
 type GroupDetailScreenProps = {
   group: Group;
@@ -43,6 +45,7 @@ export function GroupDetailScreen({ group, onBack, onOpenAdmin }: GroupDetailScr
   const [isLoadingRanking, setIsLoadingRanking] = useState(false);
   const [savingMatchID, setSavingMatchID] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
   const [rankingError, setRankingError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -110,6 +113,11 @@ export function GroupDetailScreen({ group, onBack, onOpenAdmin }: GroupDetailScr
     connectRealtime({
       groupID: group.id,
       onEvent: (event) => {
+        const nextNotification = notificationMessageFromEvent(event, group.name);
+        if (nextNotification) {
+          setNotificationMessage(nextNotification);
+        }
+
         if (
           event.name === 'match.updated' ||
           event.name === 'match.finished' ||
@@ -138,7 +146,16 @@ export function GroupDetailScreen({ group, onBack, onOpenAdmin }: GroupDetailScr
       isMounted = false;
       cleanup?.();
     };
-  }, [group.id, loadMatches, loadRanking]);
+  }, [group.id, group.name, loadMatches, loadRanking]);
+
+  useEffect(() => {
+    if (!notificationMessage) {
+      return;
+    }
+
+    const timer = setTimeout(() => setNotificationMessage(null), 5000);
+    return () => clearTimeout(timer);
+  }, [notificationMessage]);
 
   function updateDraft(matchID: string, key: keyof ScoreDraft, value: string) {
     setDrafts((currentDrafts) => ({
@@ -219,6 +236,7 @@ export function GroupDetailScreen({ group, onBack, onOpenAdmin }: GroupDetailScr
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
+        <NotificationBanner message={notificationMessage} />
 
         <View style={styles.tabs}>
           <Pressable
