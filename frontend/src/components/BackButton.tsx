@@ -1,10 +1,10 @@
 import { Pressable, Text, StyleSheet } from "react-native";
 
-export function BackButton({ onBackToLogin }: { onBackToLogin: () => void }) {
+export function BackButton({  onPress }: {  onPress: () => void }) {
   return (
     <Pressable
-      accessibilityLabel="Voltar para o login"
-      onPress={onBackToLogin}
+      accessibilityLabel="Voltar"
+      onPress={onPress}
       style={styles.backButton}>
       <Text style={styles.backButtonText}>‹</Text>
     </Pressable>

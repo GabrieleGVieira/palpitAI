@@ -42,7 +42,7 @@ export function SignupScreen({ onBackToLogin }: SignupScreenProps) {
           <View style={styles.pitchMarkTop} />
           <View style={styles.pitchCircle} />
 
-          <BackButton onBackToLogin={onBackToLogin} />
+          <BackButton onPress={onBackToLogin} />
 
           <SignupHeader
             title="Crie sua conta"
