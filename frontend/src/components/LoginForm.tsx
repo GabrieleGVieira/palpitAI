@@ -1,5 +1,5 @@
 import { Pressable, View, Text, StyleSheet } from 'react-native';
-import { AuthInputField } from './AuthInputField';
+import { AuthInputField } from './global/AuthInputField';
 type LoginFormProps = {
   setEmail: (email: string) => void;
   setPassword: (password: string) => void;

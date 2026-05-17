@@ -7,7 +7,7 @@ import { GroupDetailMatchCard } from '../components/GroupDetailMatchCard';
 import { useGroupDetailScreen } from '../hooks/useGroupDetailScreen';
 import type { Group } from '../services/groups';
 import { GroupDetailRankingCard } from '../components/GroupDetailRankingCard';
-import { EmptyBox } from '../components/EmptyBox';
+import { EmptyBox } from '../components/global/EmptyBox';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 
 type GroupDetailScreenProps = {

@@ -1,9 +1,9 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { NotificationBanner } from './NotificationBanner';
+import { NotificationBanner } from './global/NotificationBanner';
 import type { Group } from '../services/groups';
 import type { GroupDetailTab } from '../hooks/useGroupDetailScreen';
-import { BackButton } from './BackButton';
+import { BackButton } from './global/BackButton';
 
 type Props = {
   activeTab: GroupDetailTab;

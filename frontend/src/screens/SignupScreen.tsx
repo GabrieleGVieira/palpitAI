@@ -6,7 +6,7 @@ import { useSignupScreen } from '../hooks/useSignupScreen';
 import { SignupFooter } from '../components/SignupFooter';
 import { SignupHeader } from '../components/SignupHeader';
 import { SignupForm } from '../components/SignupForm';
-import { BackButton } from '../components/BackButton';
+import { BackButton } from '../components/global/BackButton';
 
 type SignupScreenProps = {
   onBackToLogin: () => void;

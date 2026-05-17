@@ -1,8 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
-import {ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { NotificationBanner } from '../components/NotificationBanner';
+import { NotificationBanner } from '../components/global/NotificationBanner';
 import { useAuth } from '../hooks/useAuth';
 import { useHomeScreen } from '../hooks/useHomeScreen';
 import { GroupListSection } from '../components/GroupListSection';
