@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../hooks/useAuth';
-import { joinGroup, listGroups, type Group } from '../services/groups';
+import { getUserScore, joinGroup, listGroups, type Group } from '../services/groups';
 
 type HomeScreenProps = {
   onCreateGroup: () => void;
@@ -24,8 +24,11 @@ export function HomeScreen({ onCreateGroup, onOpenGroup }: HomeScreenProps) {
   const { isSubmitting, logout, user } = useAuth();
   const userName = user?.user_metadata.full_name as string | undefined;
   const [groups, setGroups] = useState<Group[]>([]);
+  const [totalPoints, setTotalPoints] = useState(0);
   const [isLoadingGroups, setIsLoadingGroups] = useState(true);
+  const [isLoadingScore, setIsLoadingScore] = useState(true);
   const [groupsError, setGroupsError] = useState<string | null>(null);
+  const [scoreError, setScoreError] = useState<string | null>(null);
   const [inviteCode, setInviteCode] = useState('');
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joinSuccess, setJoinSuccess] = useState<string | null>(null);
@@ -47,9 +50,29 @@ export function HomeScreen({ onCreateGroup, onOpenGroup }: HomeScreenProps) {
     }
   }, []);
 
+  const loadScore = useCallback(async () => {
+    setScoreError(null);
+    setIsLoadingScore(true);
+
+    try {
+      const score = await getUserScore();
+      setTotalPoints(score.total_points);
+    } catch (error) {
+      setScoreError(
+        error instanceof Error ? error.message : 'Nao foi possivel carregar sua pontuacao.',
+      );
+    } finally {
+      setIsLoadingScore(false);
+    }
+  }, []);
+
+  const refreshHome = useCallback(async () => {
+    await Promise.all([loadGroups(), loadScore()]);
+  }, [loadGroups, loadScore]);
+
   useEffect(() => {
-    loadGroups();
-  }, [loadGroups]);
+    refreshHome();
+  }, [refreshHome]);
 
   async function handleJoinGroup() {
     setJoinError(null);
@@ -70,7 +93,7 @@ export function HomeScreen({ onCreateGroup, onOpenGroup }: HomeScreenProps) {
           ? 'Solicitacao enviada. Aguarde a aprovacao do dono do grupo.'
           : 'Voce entrou no grupo.',
       );
-      await loadGroups();
+      await refreshHome();
     } catch (error) {
       setJoinError(error instanceof Error ? error.message : 'Nao foi possivel entrar no grupo.');
     } finally {
@@ -106,6 +129,16 @@ export function HomeScreen({ onCreateGroup, onOpenGroup }: HomeScreenProps) {
           {user?.email ? <Text style={styles.sessionEmail}>{user.email}</Text> : null}
         </View>
 
+        <View style={styles.scoreBox}>
+          <View>
+            <Text style={styles.scoreLabel}>Pontuacao geral</Text>
+            <Text style={styles.scoreHint}>Somando todos os grupos ativos</Text>
+          </View>
+          <Text style={styles.scoreValue}>{isLoadingScore ? '...' : totalPoints}</Text>
+        </View>
+
+        {scoreError ? <Text style={styles.errorText}>{scoreError}</Text> : null}
+
         <View style={styles.joinBox}>
           <View>
             <Text style={styles.joinTitle}>Entrar em um grupo</Text>
@@ -139,7 +172,7 @@ export function HomeScreen({ onCreateGroup, onOpenGroup }: HomeScreenProps) {
               <Text style={styles.sectionTitle}>Meus grupos</Text>
               <Text style={styles.sectionSubtitle}>Bolões em que voce participa</Text>
             </View>
-            <Pressable onPress={loadGroups} style={styles.refreshButton}>
+            <Pressable onPress={refreshHome} style={styles.refreshButton}>
               <Text style={styles.refreshButtonText}>Atualizar</Text>
             </Pressable>
           </View>
@@ -308,6 +341,31 @@ const styles = StyleSheet.create({
     color: '#486654',
     fontSize: 15,
     marginTop: 4,
+  },
+  scoreBox: {
+    alignItems: 'center',
+    backgroundColor: '#123d2a',
+    borderColor: '#296943',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 18,
+  },
+  scoreLabel: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  scoreHint: {
+    color: '#cde4c9',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  scoreValue: {
+    color: '#ffffff',
+    fontSize: 34,
+    fontWeight: '900',
   },
   joinBox: {
     backgroundColor: '#ffffff',

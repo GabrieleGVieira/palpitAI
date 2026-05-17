@@ -11,7 +11,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { listGroupMatches, savePrediction, type Group, type GroupMatch } from '../services/groups';
+import {
+  listGroupMatches,
+  listGroupRanking,
+  savePrediction,
+  type Group,
+  type GroupMatch,
+  type RankingEntry,
+} from '../services/groups';
 
 type GroupDetailScreenProps = {
   group: Group;
@@ -24,12 +31,18 @@ type ScoreDraft = {
   homeScore: string;
 };
 
+type GroupDetailTab = 'matches' | 'ranking';
+
 export function GroupDetailScreen({ group, onBack, onOpenAdmin }: GroupDetailScreenProps) {
   const [matches, setMatches] = useState<GroupMatch[]>([]);
+  const [ranking, setRanking] = useState<RankingEntry[]>([]);
   const [drafts, setDrafts] = useState<Record<string, ScoreDraft>>({});
+  const [activeTab, setActiveTab] = useState<GroupDetailTab>('matches');
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingRanking, setIsLoadingRanking] = useState(false);
   const [savingMatchID, setSavingMatchID] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rankingError, setRankingError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const loadMatches = useCallback(async () => {
@@ -47,9 +60,31 @@ export function GroupDetailScreen({ group, onBack, onOpenAdmin }: GroupDetailScr
     }
   }, [group.id]);
 
+  const loadRanking = useCallback(async () => {
+    setRankingError(null);
+    setIsLoadingRanking(true);
+
+    try {
+      const nextRanking = await listGroupRanking(group.id);
+      setRanking(nextRanking);
+    } catch (loadError) {
+      setRankingError(
+        loadError instanceof Error ? loadError.message : 'Nao foi possivel carregar o ranking.',
+      );
+    } finally {
+      setIsLoadingRanking(false);
+    }
+  }, [group.id]);
+
   useEffect(() => {
     loadMatches();
   }, [loadMatches]);
+
+  useEffect(() => {
+    if (activeTab === 'ranking') {
+      loadRanking();
+    }
+  }, [activeTab, loadRanking]);
 
   function updateDraft(matchID: string, key: keyof ScoreDraft, value: string) {
     setDrafts((currentDrafts) => ({
@@ -89,6 +124,7 @@ export function GroupDetailScreen({ group, onBack, onOpenAdmin }: GroupDetailScr
             : currentMatch,
         ),
       );
+      await loadRanking();
       setSuccessMessage('Palpite salvo.');
     } catch (saveError) {
       setError(
@@ -130,21 +166,41 @@ export function GroupDetailScreen({ group, onBack, onOpenAdmin }: GroupDetailScr
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
 
-        {isLoading ? (
+        <View style={styles.tabs}>
+          <Pressable
+            onPress={() => setActiveTab('matches')}
+            style={[styles.tabButton, activeTab === 'matches' && styles.tabButtonActive]}>
+            <Text
+              style={[styles.tabButtonText, activeTab === 'matches' && styles.tabButtonTextActive]}>
+              Jogos e palpites
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setActiveTab('ranking')}
+            style={[styles.tabButton, activeTab === 'ranking' && styles.tabButtonActive]}>
+            <Text
+              style={[styles.tabButtonText, activeTab === 'ranking' && styles.tabButtonTextActive]}>
+              Ranking
+            </Text>
+          </Pressable>
+        </View>
+
+        {activeTab === 'matches' && isLoading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator color="#1f7a4a" />
             <Text style={styles.loadingText}>Carregando jogos...</Text>
           </View>
         ) : null}
 
-        {!isLoading && matches.length === 0 ? (
+        {activeTab === 'matches' && !isLoading && matches.length === 0 ? (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyTitle}>Nenhum jogo encontrado</Text>
             <Text style={styles.emptyText}>A lista de jogos desse bolao ainda esta vazia.</Text>
           </View>
         ) : null}
 
-        {matches.map((match) => {
+        {activeTab === 'matches' ? matches.map((match) => {
           const draft = drafts[match.id] ?? { awayScore: '', homeScore: '' };
           const hasStarted = new Date(match.kickoff_at).getTime() <= Date.now();
           const isSaving = savingMatchID === match.id;
@@ -155,6 +211,18 @@ export function GroupDetailScreen({ group, onBack, onOpenAdmin }: GroupDetailScr
                 <Text style={styles.stage}>{match.stage}</Text>
                 <Text style={styles.kickoff}>{formatDate(match.kickoff_at)}</Text>
               </View>
+
+              {match.finished_at &&
+              match.final_home_score !== null &&
+              match.final_away_score !== null ? (
+                <View style={styles.resultBox}>
+                  <Text style={styles.resultLabel}>Resultado final</Text>
+                  <Text style={styles.resultText}>
+                    {match.home_team} {match.final_home_score} x {match.final_away_score}{' '}
+                    {match.away_team}
+                  </Text>
+                </View>
+              ) : null}
 
               <View style={styles.scoreRow}>
                 <Text style={styles.teamName}>{match.home_team}</Text>
@@ -177,9 +245,14 @@ export function GroupDetailScreen({ group, onBack, onOpenAdmin }: GroupDetailScr
               </View>
 
               {match.my_prediction ? (
-                <Text style={styles.predictionText}>
-                  Seu palpite: {match.my_prediction.home_score} x {match.my_prediction.away_score}
-                </Text>
+                <View style={styles.predictionSummary}>
+                  <Text style={styles.predictionText}>
+                    Seu palpite: {match.my_prediction.home_score} x {match.my_prediction.away_score}
+                  </Text>
+                  {match.my_prediction.points !== null ? (
+                    <Text style={styles.pointsText}>{match.my_prediction.points} pts</Text>
+                  ) : null}
+                </View>
               ) : (
                 <Text style={styles.predictionText}>Voce ainda nao palpitou neste jogo.</Text>
               )}
@@ -194,7 +267,40 @@ export function GroupDetailScreen({ group, onBack, onOpenAdmin }: GroupDetailScr
               </Pressable>
             </View>
           );
-        })}
+        }) : null}
+
+        {activeTab === 'ranking' && isLoadingRanking ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator color="#1f7a4a" />
+            <Text style={styles.loadingText}>Carregando ranking...</Text>
+          </View>
+        ) : null}
+
+        {activeTab === 'ranking' && rankingError ? (
+          <Text style={styles.errorText}>{rankingError}</Text>
+        ) : null}
+
+        {activeTab === 'ranking' && !isLoadingRanking && !rankingError && ranking.length === 0 ? (
+          <View style={styles.emptyBox}>
+            <Text style={styles.emptyTitle}>Ranking vazio</Text>
+            <Text style={styles.emptyText}>Os participantes ainda nao pontuaram neste grupo.</Text>
+          </View>
+        ) : null}
+
+        {activeTab === 'ranking'
+          ? ranking.map((entry) => (
+              <View key={entry.user_id} style={styles.rankingCard}>
+                <View style={styles.positionBadge}>
+                  <Text style={styles.positionText}>#{entry.position}</Text>
+                </View>
+                <View style={styles.rankingUserInfo}>
+                  <Text style={styles.rankingUser}>{formatUserID(entry.user_id)}</Text>
+                  <Text style={styles.rankingMeta}>Participante do grupo</Text>
+                </View>
+                <Text style={styles.rankingPoints}>{entry.total_points} pts</Text>
+              </View>
+            ))
+          : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -217,6 +323,14 @@ function formatDate(value: string) {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(new Date(value));
+}
+
+function formatUserID(userID: string) {
+  if (userID.length <= 12) {
+    return userID;
+  }
+
+  return `${userID.slice(0, 8)}...${userID.slice(-4)}`;
 }
 
 const styles = StyleSheet.create({

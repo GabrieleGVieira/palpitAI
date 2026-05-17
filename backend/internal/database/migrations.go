@@ -44,9 +44,21 @@ func Migrate(ctx context.Context, db *pgxpool.Pool) error {
 			away_team text not null,
 			stage text not null,
 			kickoff_at timestamptz not null,
+			home_score integer check (home_score is null or (home_score >= 0 and home_score <= 99)),
+			away_score integer check (away_score is null or (away_score >= 0 and away_score <= 99)),
+			finished_at timestamptz,
 			created_at timestamptz not null default now(),
 			unique (home_team, away_team, kickoff_at)
 		);
+
+		alter table world_cup_matches
+			add column if not exists home_score integer check (home_score is null or (home_score >= 0 and home_score <= 99));
+
+		alter table world_cup_matches
+			add column if not exists away_score integer check (away_score is null or (away_score >= 0 and away_score <= 99));
+
+		alter table world_cup_matches
+			add column if not exists finished_at timestamptz;
 
 		create table if not exists predictions (
 			group_id uuid not null references groups(id) on delete cascade,
@@ -54,10 +66,18 @@ func Migrate(ctx context.Context, db *pgxpool.Pool) error {
 			user_id uuid not null,
 			home_score integer not null check (home_score >= 0 and home_score <= 99),
 			away_score integer not null check (away_score >= 0 and away_score <= 99),
+			points integer,
+			scored_at timestamptz,
 			created_at timestamptz not null default now(),
 			updated_at timestamptz not null default now(),
 			primary key (group_id, match_id, user_id)
 		);
+
+		alter table predictions
+			add column if not exists points integer;
+
+		alter table predictions
+			add column if not exists scored_at timestamptz;
 
 		insert into world_cup_matches (home_team, away_team, stage, kickoff_at)
 		values

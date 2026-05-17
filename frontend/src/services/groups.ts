@@ -46,16 +46,31 @@ export type Prediction = {
   away_score: number;
   home_score: number;
   match_id: string;
+  points: number | null;
+  scored_at: string | null;
   updated_at: string;
 };
 
 export type GroupMatch = {
   away_team: string;
+  final_away_score: number | null;
+  final_home_score: number | null;
+  finished_at: string | null;
   home_team: string;
   id: string;
   kickoff_at: string;
   my_prediction: Prediction | null;
   stage: string;
+};
+
+export type RankingEntry = {
+  position: number;
+  total_points: number;
+  user_id: string;
+};
+
+export type UserScore = {
+  total_points: number;
 };
 
 type APIError = {
@@ -74,6 +89,10 @@ type ListJoinRequestsResponse = {
   requests: JoinRequest[];
 };
 
+type GroupRankingResponse = {
+  ranking: RankingEntry[];
+};
+
 type JoinGroupResponse = {
   group: Group;
   membership_status: string;
@@ -89,11 +108,13 @@ async function readJSONResponse(response: Response) {
   try {
     return JSON.parse(responseText) as
       | Group
+      | GroupRankingResponse
       | Prediction
       | JoinGroupResponse
       | ListGroupMatchesResponse
       | ListGroupsResponse
       | ListJoinRequestsResponse
+      | UserScore
       | APIError;
   } catch {
     throw new Error(`A API respondeu em formato inesperado: ${responseText}`);
@@ -121,6 +142,16 @@ export async function listGroups() {
   );
 
   return (data as ListGroupsResponse).groups;
+}
+
+export async function getUserScore() {
+  const data = await requestAPI(
+    '/api/v1/me/score',
+    undefined,
+    'Nao foi possivel carregar sua pontuacao.',
+  );
+
+  return data as UserScore;
 }
 
 export async function joinGroup(inviteCode: string) {
@@ -177,6 +208,16 @@ export async function listGroupMatches(groupID: string) {
   );
 
   return (data as ListGroupMatchesResponse).matches;
+}
+
+export async function listGroupRanking(groupID: string) {
+  const data = await requestAPI(
+    `/api/v1/groups/${groupID}/ranking`,
+    undefined,
+    'Nao foi possivel carregar o ranking.',
+  );
+
+  return (data as GroupRankingResponse).ranking;
 }
 
 export async function savePrediction(

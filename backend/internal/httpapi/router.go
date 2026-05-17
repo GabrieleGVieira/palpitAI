@@ -31,6 +31,7 @@ func NewRouter(cfg config.Config, db datastore) http.Handler {
 
 	mux.HandleFunc("GET /health", healthHandler(db))
 	mux.HandleFunc("GET /api/v1/status", statusHandler(cfg, db))
+	mux.HandleFunc("GET /api/v1/me/score", userScoreHandler(cfg, db))
 	mux.HandleFunc("GET /api/v1/groups", listGroupsHandler(cfg, db))
 	mux.HandleFunc("POST /api/v1/groups", createGroupHandler(cfg, db))
 	mux.HandleFunc("PUT /api/v1/groups/{groupID}", updateGroupHandler(cfg, db))
@@ -38,7 +39,9 @@ func NewRouter(cfg config.Config, db datastore) http.Handler {
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/join-requests", listJoinRequestsHandler(cfg, db))
 	mux.HandleFunc("POST /api/v1/groups/{groupID}/join-requests/{userID}/approve", approveJoinRequestHandler(cfg, db))
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/matches", listGroupMatchesHandler(cfg, db))
+	mux.HandleFunc("GET /api/v1/groups/{groupID}/ranking", groupRankingHandler(cfg, db))
 	mux.HandleFunc("PUT /api/v1/groups/{groupID}/matches/{matchID}/prediction", savePredictionHandler(cfg, db))
+	mux.HandleFunc("PUT /api/v1/matches/{matchID}/result", saveMatchResultHandler(cfg, db))
 
 	return withCORS(mux)
 }

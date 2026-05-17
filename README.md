@@ -60,6 +60,7 @@ PUT /api/v1/groups/{groupID}
 POST /api/v1/groups/join
 GET /api/v1/groups/{groupID}/matches
 PUT /api/v1/groups/{groupID}/matches/{matchID}/prediction
+PUT /api/v1/matches/{matchID}/result
 ```
 
 ### Frontend

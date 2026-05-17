@@ -31,6 +31,7 @@ PUT /api/v1/groups/{groupID}
 POST /api/v1/groups/join
 GET /api/v1/groups/{groupID}/matches
 PUT /api/v1/groups/{groupID}/matches/{matchID}/prediction
+PUT /api/v1/matches/{matchID}/result
 ```
 
 As respostas incluem o status da conexao com o banco:
@@ -85,6 +86,14 @@ A rota adiciona o usuario autenticado em `group_members` como `member`, respeita
 `GET /api/v1/groups/{groupID}/matches` retorna os jogos do grupo e o palpite do usuario autenticado quando existir.
 
 `PUT /api/v1/groups/{groupID}/matches/{matchID}/prediction` salva ou edita o palpite antes do inicio do jogo.
+
+### Resultado e pontuacao
+
+`PUT /api/v1/matches/{matchID}/result` registra o placar final e calcula os pontos dos palpites da partida:
+
+- placar exato: 10 pontos
+- acertou vencedor ou empate: 5 pontos
+- errou tudo: 0 pontos
 
 ## Comandos
 
