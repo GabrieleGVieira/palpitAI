@@ -1,22 +1,16 @@
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import {ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { NotificationBanner } from '../components/NotificationBanner';
 import { useAuth } from '../hooks/useAuth';
-import { getUserScore, joinGroup, listGroups, type Group } from '../services/groups';
-import { connectRealtime } from '../services/realtime';
-import { notificationMessageFromEvent } from '../utils/realtimeNotifications';
+import { useHomeScreen } from '../hooks/useHomeScreen';
+import { GroupListSection } from '../components/GroupListSection';
+import { HomeHeader } from '../components/HomeHeader';
+import { JoinGroupCard } from '../components/JoinGroupCard';
+import { ScoreCard } from '../components/ScoreCard';
+
+import type { Group } from '../services/groups';
 
 type HomeScreenProps = {
   onCreateGroup: () => void;
@@ -26,122 +20,22 @@ type HomeScreenProps = {
 export function HomeScreen({ onCreateGroup, onOpenGroup }: HomeScreenProps) {
   const { isSubmitting, logout, user } = useAuth();
   const userName = user?.user_metadata.full_name as string | undefined;
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [totalPoints, setTotalPoints] = useState(0);
-  const [isLoadingGroups, setIsLoadingGroups] = useState(true);
-  const [isLoadingScore, setIsLoadingScore] = useState(true);
-  const [groupsError, setGroupsError] = useState<string | null>(null);
-  const [scoreError, setScoreError] = useState<string | null>(null);
-  const [inviteCode, setInviteCode] = useState('');
-  const [joinError, setJoinError] = useState<string | null>(null);
-  const [joinSuccess, setJoinSuccess] = useState<string | null>(null);
-  const [isJoiningGroup, setIsJoiningGroup] = useState(false);
-  const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
-
-  const loadGroups = useCallback(async () => {
-    setGroupsError(null);
-    setIsLoadingGroups(true);
-
-    try {
-      const nextGroups = await listGroups();
-      setGroups(nextGroups);
-    } catch (error) {
-      setGroupsError(
-        error instanceof Error ? error.message : 'Não foi possível carregar seus grupos.',
-      );
-    } finally {
-      setIsLoadingGroups(false);
-    }
-  }, []);
-
-  const loadScore = useCallback(async () => {
-    setScoreError(null);
-    setIsLoadingScore(true);
-
-    try {
-      const score = await getUserScore();
-      setTotalPoints(score.total_points);
-    } catch (error) {
-      setScoreError(
-        error instanceof Error ? error.message : 'Não foi possível carregar sua pontuação.',
-      );
-    } finally {
-      setIsLoadingScore(false);
-    }
-  }, []);
-
-  const refreshHome = useCallback(async () => {
-    await Promise.all([loadGroups(), loadScore()]);
-  }, [loadGroups, loadScore]);
-
-  useEffect(() => {
-    refreshHome();
-  }, [refreshHome]);
-
-  useEffect(() => {
-    let cleanup: (() => void) | undefined;
-    let isMounted = true;
-
-    connectRealtime({
-      onEvent: (event) => {
-        if (event.name === 'ranking.updated' || event.name === 'match.finished') {
-          setNotificationMessage(notificationMessageFromEvent(event));
-          void refreshHome();
-        }
-      },
-    })
-      .then((nextCleanup) => {
-        if (isMounted) {
-          cleanup = nextCleanup;
-        } else {
-          nextCleanup();
-        }
-      })
-      .catch(() => {
-        // Home remains usable through REST even when realtime is unavailable.
-      });
-
-    return () => {
-      isMounted = false;
-      cleanup?.();
-    };
-  }, [refreshHome]);
-
-  useEffect(() => {
-    if (!notificationMessage) {
-      return;
-    }
-
-    const timer = setTimeout(() => setNotificationMessage(null), 5000);
-    return () => clearTimeout(timer);
-  }, [notificationMessage]);
-
-  async function handleJoinGroup() {
-    setJoinError(null);
-    setJoinSuccess(null);
-
-    if (!inviteCode.trim()) {
-      setJoinError('Informe o codigo do grupo.');
-      return;
-    }
-
-    setIsJoiningGroup(true);
-
-    try {
-      const response = await joinGroup(inviteCode);
-      setInviteCode('');
-      setJoinSuccess(
-        response.membership_status === 'pending'
-          ? 'Solicitação enviada. Aguarde a aprovação do dono do grupo.'
-          : 'Você entrou no grupo.',
-      );
-      await refreshHome();
-    } catch (error) {
-      setJoinError(error instanceof Error ? error.message : 'Não foi possível entrar no grupo.');
-    } finally {
-      setIsJoiningGroup(false);
-    }
-  }
+  const {
+    groups,
+    totalPoints,
+    isLoadingGroups,
+    isLoadingScore,
+    groupsError,
+    scoreError,
+    inviteCode,
+    setInviteCode,
+    joinError,
+    joinSuccess,
+    isJoiningGroup,
+    notificationMessage,
+    refreshHome,
+    handleJoinGroup,
+  } = useHomeScreen();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -150,145 +44,35 @@ export function HomeScreen({ onCreateGroup, onOpenGroup }: HomeScreenProps) {
         <View style={styles.pitchMarkTop} />
         <View style={styles.pitchCircle} />
 
-        <View style={styles.header}>
-          <View style={styles.logoMark}>
-            <Image
-              accessibilityIgnoresInvertColors
-              resizeMode="cover"
-              source={require('../../assets/splash-palpitai.png')}
-              style={styles.logoImage}
-            />
-          </View>
-          <Text style={styles.title}>Olá, {userName || 'campeão'}</Text>
-          <Text style={styles.subtitle}>
-            Aqui você vê seus grupos, entra em bolões e confere seus pontos.
-          </Text>
+        <HomeHeader
+          userName={userName}
+          onCreateGroup={onCreateGroup}
+          onLogout={logout}
+          isSubmitting={isSubmitting}
+        />
 
-          <View style={styles.actionTabs}>
-            <Pressable onPress={onCreateGroup} style={[styles.tabButton, styles.tabPrimary]}>
-              <Text style={styles.tabButtonText}>Criar grupo</Text>
-            </Pressable>
-            <Pressable
-              disabled={isSubmitting}
-              onPress={logout}
-              style={[
-                styles.tabButton,
-                styles.tabSecondary,
-                isSubmitting && styles.buttonDisabled,
-              ]}>
-              <Text style={styles.tabSecondaryText}>{isSubmitting ? 'Saindo...' : 'Sair'}</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        <View style={styles.scoreBox}>
-          <View>
-            <Text style={styles.scoreLabel}>Pontuação geral</Text>
-            <Text style={styles.scoreHint}>Somando todos os grupos ativos</Text>
-          </View>
-          <Text style={styles.scoreValue}>{isLoadingScore ? '...' : totalPoints}</Text>
-        </View>
+        <ScoreCard totalPoints={totalPoints} isLoading={isLoadingScore} />
 
         <NotificationBanner message={notificationMessage} />
 
-        {scoreError ? <Text style={styles.errorText}>{scoreError}</Text> : null}
+        {scoreError ? <Text style={styles.messageText}>{scoreError}</Text> : null}
 
-        <View style={styles.joinBox}>
-          <View>
-            <Text style={styles.joinTitle}>Entrar em um grupo</Text>
-            <Text style={styles.joinSubtitle}>Use o código de convite recebido.</Text>
-          </View>
+        <JoinGroupCard
+          inviteCode={inviteCode}
+          setInviteCode={setInviteCode}
+          onJoinGroup={handleJoinGroup}
+          isJoiningGroup={isJoiningGroup}
+          joinError={joinError}
+          joinSuccess={joinSuccess}
+        />
 
-          <View style={styles.joinForm}>
-            <TextInput
-              autoCapitalize="characters"
-              onChangeText={setInviteCode}
-              placeholder="CÓDIGO"
-              placeholderTextColor="#7c8898"
-              style={styles.inviteInput}
-              value={inviteCode}
-            />
-            <Pressable
-              disabled={isJoiningGroup}
-              onPress={handleJoinGroup}
-              style={[styles.joinButton, isJoiningGroup && styles.buttonDisabled]}>
-              <Text style={styles.joinButtonText}>{isJoiningGroup ? 'Entrando...' : 'Entrar'}</Text>
-            </Pressable>
-          </View>
-
-          {joinError ? <Text style={styles.errorText}>{joinError}</Text> : null}
-          {joinSuccess ? <Text style={styles.successText}>{joinSuccess}</Text> : null}
-        </View>
-
-        <View style={styles.groupsSection}>
-          <View style={styles.sectionHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>Meus grupos</Text>
-              <Text style={styles.sectionSubtitle}>Bolões em que você participa</Text>
-            </View>
-            <Pressable onPress={refreshHome} style={styles.refreshButton}>
-              <Text style={styles.refreshButtonText}>Atualizar</Text>
-            </Pressable>
-          </View>
-
-          {isLoadingGroups ? (
-            <View style={styles.loadingBox}>
-              <ActivityIndicator color="#1f7a4a" />
-              <Text style={styles.loadingText}>Carregando grupos...</Text>
-            </View>
-          ) : null}
-
-          {groupsError ? <Text style={styles.errorText}>{groupsError}</Text> : null}
-
-          {!isLoadingGroups && !groupsError && groups.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyTitle}>Nenhum grupo ainda</Text>
-              <Text style={styles.emptyText}>
-                Crie seu primeiro bolão da Copa para convidar sua turma.
-              </Text>
-            </View>
-          ) : null}
-
-          {groups.map((group) => (
-            <Pressable key={group.id} onPress={() => onOpenGroup(group)} style={styles.groupCard}>
-              <View style={styles.groupCardHeader}>
-                <View style={styles.groupTitleBlock}>
-                  <Text style={styles.groupName}>{group.name}</Text>
-                  <Text style={styles.groupMeta}>
-                    {group.role === 'owner' ? 'Dono' : 'Membro'} · {group.member_count} participante
-                    {group.member_count === 1 ? '' : 's'}
-                  </Text>
-                </View>
-                <View style={styles.inviteBadge}>
-                  <Text style={styles.inviteBadgeLabel}>Convite</Text>
-                  <Text style={styles.inviteBadgeCode}>{group.invite_code}</Text>
-                </View>
-              </View>
-
-              {group.description ? (
-                <Text style={styles.groupDescription}>{group.description}</Text>
-              ) : null}
-
-              <Text style={styles.groupScope}>
-                {group.match_scope === 'all'
-                  ? 'Todos os jogos da Copa'
-                  : `Seleções: ${group.selected_teams.join(', ')}`}
-              </Text>
-
-              {group.role === 'owner' && group.pending_requests_count > 0 ? (
-                <View style={styles.requestsSummaryBox}>
-                  <Text style={styles.requestsSummaryText}>
-                    {group.pending_requests_count}{' '}
-                    {group.pending_requests_count === 1
-                      ? 'solicitação pendente'
-                      : 'solicitações pendentes'}
-                  </Text>
-                  <Text style={styles.requestsSummaryHint}>Abra o admin para analisar.</Text>
-                </View>
-              ) : null}
-            </Pressable>
-          ))}
-        </View>
+        <GroupListSection
+          groups={groups}
+          isLoadingGroups={isLoadingGroups}
+          groupsError={groupsError}
+          onRefresh={refreshHome}
+          onOpenGroup={onOpenGroup}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -326,389 +110,10 @@ const styles = StyleSheet.create({
     top: 104,
     width: 280,
   },
-  header: {
-    paddingTop: 32,
-  },
-  logoMark: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#d9e7d4',
-    borderRadius: 32,
-    borderWidth: 1,
-    height: 64,
-    justifyContent: 'center',
-    marginBottom: 24,
-    overflow: 'hidden',
-    shadowColor: '#1e5c39',
-    shadowOffset: { height: 8, width: 0 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    width: 64,
-  },
-  logoImage: {
-    height: 76,
-    transform: [{ scale: 1.18 }],
-    width: 76,
-  },
-  title: {
-    color: '#123d2a',
-    fontSize: 38,
-    fontWeight: '800',
-    letterSpacing: 0,
-  },
-  subtitle: {
-    color: '#486654',
-    fontSize: 16,
-    lineHeight: 24,
-    marginTop: 12,
-    maxWidth: 340,
-  },
-  sessionBox: {
-    backgroundColor: '#ffffff',
-    borderColor: '#cfe0c9',
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 20,
-  },
-  sessionLabel: {
-    color: '#486654',
-    fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  sessionName: {
-    color: '#123d2a',
-    fontSize: 24,
-    fontWeight: '800',
-    marginTop: 8,
-  },
-  sessionEmail: {
-    color: '#486654',
-    fontSize: 15,
-    marginTop: 4,
-  },
-  scoreBox: {
-    alignItems: 'center',
-    backgroundColor: '#123d2a',
-    borderColor: '#296943',
-    borderRadius: 8,
-    borderWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 18,
-  },
-  scoreLabel: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  scoreHint: {
-    color: '#cde4c9',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  scoreValue: {
-    color: '#ffffff',
-    fontSize: 34,
-    fontWeight: '900',
-  },
-  joinBox: {
-    backgroundColor: '#ffffff',
-    borderColor: '#cfe0c9',
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 14,
-    padding: 16,
-  },
-  joinTitle: {
-    color: '#123d2a',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  joinSubtitle: {
-    color: '#486654',
-    fontSize: 13,
-    marginTop: 4,
-  },
-  joinForm: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  inviteInput: {
-    backgroundColor: '#f5f8ef',
-    borderColor: '#cfe0c9',
-    borderRadius: 8,
-    borderWidth: 1,
-    color: '#183f2d',
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '800',
-    minHeight: 48,
-    paddingHorizontal: 14,
-  },
-  joinButton: {
-    alignItems: 'center',
-    backgroundColor: '#1f7a4a',
-    borderRadius: 8,
-    justifyContent: 'center',
-    minHeight: 48,
-    paddingHorizontal: 18,
-  },
-  buttonDisabled: {
-    opacity: 0.72,
-  },
-  joinButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  groupsSection: {
-    gap: 12,
-  },
-  sectionHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  sectionTitle: {
-    color: '#123d2a',
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  sectionSubtitle: {
-    color: '#486654',
-    fontSize: 13,
-    marginTop: 3,
-  },
-  refreshButton: {
-    backgroundColor: '#ffffff',
-    borderColor: '#cfe0c9',
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  refreshButtonText: {
-    color: '#1f7a4a',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  loadingBox: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#cfe0c9',
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 8,
-    padding: 18,
-  },
-  loadingText: {
-    color: '#486654',
-    fontSize: 14,
-  },
-  errorText: {
+  messageText: {
     color: '#a03222',
     fontSize: 13,
     lineHeight: 18,
-  },
-  successText: {
-    color: '#1f7a4a',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  emptyBox: {
-    backgroundColor: '#ffffff',
-    borderColor: '#cfe0c9',
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 18,
-  },
-  emptyTitle: {
-    color: '#123d2a',
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  emptyText: {
-    color: '#486654',
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 6,
-  },
-  groupCard: {
-    backgroundColor: '#ffffff',
-    borderColor: '#cfe0c9',
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 16,
-  },
-  groupCardHeader: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'space-between',
-  },
-  groupTitleBlock: {
-    flex: 1,
-  },
-  groupName: {
-    color: '#123d2a',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  groupMeta: {
-    color: '#486654',
-    fontSize: 13,
-    marginTop: 4,
-  },
-  inviteBadge: {
-    alignItems: 'center',
-    backgroundColor: '#edf3e8',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  inviteBadgeLabel: {
-    color: '#486654',
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  inviteBadgeCode: {
-    color: '#1f7a4a',
-    fontSize: 14,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  groupDescription: {
-    color: '#486654',
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 12,
-  },
-  groupScope: {
-    color: '#1f7a4a',
-    fontSize: 13,
-    fontWeight: '800',
-    marginTop: 12,
-  },
-  requestsSummaryBox: {
-    backgroundColor: '#edf3e8',
-    borderRadius: 8,
-    marginTop: 14,
-    padding: 12,
-  },
-  requestsSummaryText: {
-    color: '#123d2a',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  requestsSummaryHint: {
-    color: '#486654',
-    fontSize: 12,
-    marginTop: 3,
-  },
-  requestsBox: {
-    borderTopColor: '#edf3e8',
-    borderTopWidth: 1,
-    gap: 10,
-    marginTop: 14,
-    paddingTop: 14,
-  },
-  requestsTitle: {
-    color: '#123d2a',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  requestRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'space-between',
-  },
-  requestInfo: {
-    flex: 1,
-  },
-  requestUser: {
-    color: '#183f2d',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  requestMeta: {
-    color: '#486654',
-    fontSize: 12,
-    marginTop: 3,
-  },
-  approveButton: {
-    alignItems: 'center',
-    backgroundColor: '#1f7a4a',
-    borderRadius: 8,
-    justifyContent: 'center',
-    minHeight: 38,
-    paddingHorizontal: 12,
-  },
-  approveButtonText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  actionTabs: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 18,
-  },
-  tabButton: {
-    flex: 1,
-    alignItems: 'center',
-    borderRadius: 999,
-    justifyContent: 'center',
-    minHeight: 48,
-    paddingHorizontal: 12,
-  },
-  tabPrimary: {
-    backgroundColor: '#1f7a4a',
-  },
-  tabSecondary: {
-    backgroundColor: '#ffffff',
-    borderColor: '#1f7a4a',
-    borderWidth: 1,
-  },
-  tabButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  tabSecondaryText: {
-    color: '#1f7a4a',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  actions: {
-    gap: 12,
-  },
-  primaryButton: {
-    alignItems: 'center',
-    backgroundColor: '#1f7a4a',
-    borderRadius: 8,
-    justifyContent: 'center',
-    minHeight: 54,
-  },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  secondaryButton: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#1f7a4a',
-    borderRadius: 8,
-    borderWidth: 1,
-    justifyContent: 'center',
-    minHeight: 54,
-  },
-  secondaryButtonText: {
-    color: '#1f7a4a',
-    fontSize: 16,
-    fontWeight: '800',
+    marginTop: -8,
   },
 });

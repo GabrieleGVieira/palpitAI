@@ -282,7 +282,7 @@ export function GroupDetailScreen({ group, onBack, onOpenAdmin }: GroupDetailScr
                 <View key={match.id} style={styles.matchCard}>
                   <View style={styles.matchHeader}>
                     <View>
-                      <Text style={styles.stage}>{match.stage}</Text>
+                      <Text style={styles.stage}>{formatMatchStage(match.stage)}</Text>
                       <Text style={styles.matchStatus}>{formatMatchStatus(match.status)}</Text>
                     </View>
                     <Text style={styles.kickoff}>{formatDate(match.kickoff_at)}</Text>
@@ -429,6 +429,19 @@ function formatMatchStatus(status: GroupMatch['status']) {
   };
 
   return statusLabels[status];
+}
+
+function formatMatchStage(stage: GroupMatch['stage']) {
+  const stageLabels: Record<GroupMatch['stage'], string> = {
+    GROUP_STAGE: 'Fase de grupos',
+    LAST_32: 'Mata-mata inicial',
+    LAST_16: 'Oitavas de final',
+    QUARTER_FINALS: 'Quartas de final',
+    SEMI_FINALS: 'Semi-finais',
+    FINAL: 'Final',
+  };
+
+  return stageLabels[stage];
 }
 
 const styles = StyleSheet.create({

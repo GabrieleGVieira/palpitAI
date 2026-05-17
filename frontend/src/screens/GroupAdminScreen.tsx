@@ -89,12 +89,14 @@ export function GroupAdminScreen({ group, onBack, onGroupUpdated }: GroupAdminSc
       });
       onGroupUpdated({ ...group, ...updatedGroup });
       setSuccessMessage('Grupo atualizado.');
+      onBack();
     } catch (saveError) {
       setError(
         saveError instanceof Error ? saveError.message : 'Não foi possivel atualizar o grupo.',
       );
     } finally {
       setIsSaving(false);
+      onBack();
     }
   }
 
