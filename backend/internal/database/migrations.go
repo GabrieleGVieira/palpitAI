@@ -42,6 +42,15 @@ func Migrate(ctx context.Context, db *pgxpool.Pool) error {
 
 		update group_members set status = 'active' where status = '';
 
+		create index if not exists group_members_user_status_idx
+			on group_members (user_id, status);
+
+		create index if not exists group_members_group_status_idx
+			on group_members (group_id, status);
+
+		create index if not exists group_members_group_user_status_idx
+			on group_members (group_id, user_id, status);
+
 		create table if not exists world_cup_matches (
 			id uuid primary key default gen_random_uuid(),
 			external_id text,
@@ -82,6 +91,9 @@ func Migrate(ctx context.Context, db *pgxpool.Pool) error {
 
 		create index if not exists world_cup_matches_status_kickoff_idx
 			on world_cup_matches (status, kickoff_at);
+
+		create index if not exists world_cup_matches_kickoff_idx
+			on world_cup_matches (kickoff_at);
 
 		create index if not exists world_cup_matches_external_id_idx
 			on world_cup_matches (external_id)
@@ -124,6 +136,18 @@ func Migrate(ctx context.Context, db *pgxpool.Pool) error {
 
 		alter table predictions
 			add column if not exists scored_at timestamptz;
+
+		create index if not exists predictions_user_group_idx
+			on predictions (user_id, group_id);
+
+		create index if not exists predictions_group_user_idx
+			on predictions (group_id, user_id);
+
+		create index if not exists predictions_match_idx
+			on predictions (match_id);
+
+		create index if not exists predictions_group_match_idx
+			on predictions (group_id, match_id);
 	`)
 
 	return err

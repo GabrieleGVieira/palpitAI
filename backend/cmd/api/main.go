@@ -12,9 +12,8 @@ import (
 
 	"github.com/gabrielevieira/palpitai/backend/internal/config"
 	"github.com/gabrielevieira/palpitai/backend/internal/database"
-	"github.com/gabrielevieira/palpitai/backend/internal/httpapi"
-	"github.com/gabrielevieira/palpitai/backend/internal/matchsync"
 	"github.com/gabrielevieira/palpitai/backend/internal/realtime"
+	"github.com/gabrielevieira/palpitai/backend/internal/route"
 )
 
 func main() {
@@ -36,21 +35,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	syncCtx, syncCancel := context.WithCancel(context.Background())
-	defer syncCancel()
 	realtimeHub := realtime.NewHub(logger)
-
-	if syncer, enabled := matchsync.New(cfg, db, logger); enabled {
-		syncer.SetPublisher(realtimeHub)
-		go syncer.Run(syncCtx)
-		logger.Info("match sync enabled", "provider", "football-data.org")
-	} else {
-		logger.Info("match sync disabled", "reason", "FOOTBALL_DATA_TOKEN not configured")
-	}
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           httpapi.NewRouter(cfg, db, realtimeHub),
+		Handler:           route.NewRouter(cfg, db, realtimeHub),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -68,7 +57,6 @@ func main() {
 
 	<-shutdownCtx.Done()
 	logger.Info("api server shutting down")
-	syncCancel()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

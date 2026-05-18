@@ -1,39 +1,11 @@
 package realtime
 
 import (
-	"context"
-	"encoding/json"
 	"log/slog"
 	"net/http"
-	"sync"
-	"time"
 
-	"github.com/gabrielevieira/palpitai/backend/internal/domain"
-	"github.com/gabrielevieira/palpitai/backend/internal/dto"
 	"github.com/gorilla/websocket"
 )
-
-const (
-	pongWait   = 60 * time.Second
-	writeWait  = 10 * time.Second
-	pingPeriod = 45 * time.Second
-)
-
-type Hub struct {
-	clients  map[*client]struct{}
-	logger   *slog.Logger
-	mu       sync.RWMutex
-	upgrader websocket.Upgrader
-}
-
-type client struct {
-	conn   *websocket.Conn
-	rooms  map[string]struct{}
-	send   chan outboundEvent
-	userID string
-}
-
-type outboundEvent = dto.RealtimeEvent
 
 func NewHub(logger *slog.Logger) *Hub {
 	if logger == nil {
@@ -44,7 +16,7 @@ func NewHub(logger *slog.Logger) *Hub {
 		clients: make(map[*client]struct{}),
 		logger:  logger,
 		upgrader: websocket.Upgrader{
-			CheckOrigin: func(_ *http.Request) bool {
+			CheckOrigin: func(*http.Request) bool {
 				return true
 			},
 		},
@@ -58,110 +30,17 @@ func (hub *Hub) ServeWS(w http.ResponseWriter, r *http.Request, userID string, r
 		return
 	}
 
-	nextClient := &client{
-		conn:   conn,
-		rooms:  make(map[string]struct{}),
-		send:   make(chan outboundEvent, 16),
-		userID: userID,
-	}
-
-	nextClient.rooms["matches"] = struct{}{}
-	nextClient.rooms["user:"+userID] = struct{}{}
-	if len(rooms) == 0 {
-		nextClient.rooms["rankings"] = struct{}{}
-	}
-	for _, room := range rooms {
-		if room != "" {
-			nextClient.rooms[room] = struct{}{}
-		}
-	}
-
-	hub.mu.Lock()
-	hub.clients[nextClient] = struct{}{}
-	hub.mu.Unlock()
+	nextClient := newClient(userID, rooms, conn)
+	hub.registerClient(nextClient)
 
 	go hub.writePump(nextClient)
 	hub.readPump(nextClient)
 }
 
-func (hub *Hub) Publish(_ context.Context, event domain.Event) {
-	outbound := outboundEvent{
-		Name:    event.Name,
-		Payload: event.Payload,
-		Room:    event.Room,
-	}
-
-	staleClients := []*client{}
-
-	hub.mu.RLock()
-	for client := range hub.clients {
-		if event.Room != "" {
-			if _, ok := client.rooms[event.Room]; !ok {
-				continue
-			}
-		}
-
-		select {
-		case client.send <- outbound:
-		default:
-			staleClients = append(staleClients, client)
-		}
-	}
-	hub.mu.RUnlock()
-
-	for _, client := range staleClients {
-		hub.closeClient(client)
-	}
-}
-
-func (hub *Hub) readPump(client *client) {
-	defer hub.closeClient(client)
-
-	client.conn.SetReadLimit(512)
-	_ = client.conn.SetReadDeadline(time.Now().Add(pongWait))
-	client.conn.SetPongHandler(func(string) error {
-		return client.conn.SetReadDeadline(time.Now().Add(pongWait))
-	})
-
-	for {
-		if _, _, err := client.conn.NextReader(); err != nil {
-			return
-		}
-	}
-}
-
-func (hub *Hub) writePump(client *client) {
-	ticker := time.NewTicker(pingPeriod)
-	defer func() {
-		ticker.Stop()
-		hub.closeClient(client)
-	}()
-
-	for {
-		select {
-		case event, ok := <-client.send:
-			_ = client.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if !ok {
-				_ = client.conn.WriteMessage(websocket.CloseMessage, []byte{})
-				return
-			}
-
-			payload, err := json.Marshal(event)
-			if err != nil {
-				hub.logger.Warn("websocket event marshal failed", "error", err)
-				continue
-			}
-
-			if err := client.conn.WriteMessage(websocket.TextMessage, payload); err != nil {
-				return
-			}
-		case <-ticker.C:
-			_ = client.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := client.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				return
-			}
-		}
-	}
+func (hub *Hub) registerClient(client *client) {
+	hub.mu.Lock()
+	hub.clients[client] = struct{}{}
+	hub.mu.Unlock()
 }
 
 func (hub *Hub) closeClient(client *client) {
@@ -172,5 +51,7 @@ func (hub *Hub) closeClient(client *client) {
 	}
 	hub.mu.Unlock()
 
-	_ = client.conn.Close()
+	if client.conn != nil {
+		_ = client.conn.Close()
+	}
 }

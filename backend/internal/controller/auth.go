@@ -1,4 +1,4 @@
-package httpapi
+package controller
 
 import (
 	"encoding/json"
@@ -12,8 +12,6 @@ import (
 )
 
 var errUnauthorized = errors.New("unauthorized")
-
-type supabaseUserResponse = dto.SupabaseUserResponse
 
 func userIDFromRequest(r *http.Request, cfg config.Config) (string, error) {
 	header := r.Header.Get("Authorization")
@@ -49,50 +47,50 @@ func userIDFromToken(r *http.Request, cfg config.Config, token string) (string, 
 	return user.ID, nil
 }
 
-func userFromToken(r *http.Request, cfg config.Config, token string) (supabaseUserResponse, error) {
+func userFromToken(r *http.Request, cfg config.Config, token string) (dto.SupabaseUserResponse, error) {
 	if strings.TrimSpace(token) == "" {
-		return supabaseUserResponse{}, errUnauthorized
+		return dto.SupabaseUserResponse{}, errUnauthorized
 	}
 
 	if strings.TrimSpace(cfg.SupabaseURL) == "" || strings.TrimSpace(cfg.SupabaseKey) == "" {
-		return supabaseUserResponse{}, errUnauthorized
+		return dto.SupabaseUserResponse{}, errUnauthorized
 	}
 
 	authURL, err := url.JoinPath(cfg.SupabaseURL, "/auth/v1/user")
 	if err != nil {
-		return supabaseUserResponse{}, errUnauthorized
+		return dto.SupabaseUserResponse{}, errUnauthorized
 	}
 
 	request, err := http.NewRequestWithContext(r.Context(), http.MethodGet, authURL, nil)
 	if err != nil {
-		return supabaseUserResponse{}, errUnauthorized
+		return dto.SupabaseUserResponse{}, errUnauthorized
 	}
 	request.Header.Set("Authorization", "Bearer "+token)
 	request.Header.Set("apikey", cfg.SupabaseKey)
 
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return supabaseUserResponse{}, errUnauthorized
+		return dto.SupabaseUserResponse{}, errUnauthorized
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return supabaseUserResponse{}, errUnauthorized
+		return dto.SupabaseUserResponse{}, errUnauthorized
 	}
 
-	var user supabaseUserResponse
+	var user dto.SupabaseUserResponse
 	if err := json.NewDecoder(response.Body).Decode(&user); err != nil {
-		return supabaseUserResponse{}, errUnauthorized
+		return dto.SupabaseUserResponse{}, errUnauthorized
 	}
 
 	if strings.TrimSpace(user.ID) == "" {
-		return supabaseUserResponse{}, errUnauthorized
+		return dto.SupabaseUserResponse{}, errUnauthorized
 	}
 
 	return user, nil
 }
 
-func userDisplayName(user supabaseUserResponse) string {
+func userDisplayName(user dto.SupabaseUserResponse) string {
 	name := strings.TrimSpace(user.UserMetadata.FullName)
 	if name != "" {
 		return name

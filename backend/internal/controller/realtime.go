@@ -1,27 +1,22 @@
-package httpapi
+package controller
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gabrielevieira/palpitai/backend/internal/config"
-	"github.com/gabrielevieira/palpitai/backend/internal/domain"
+	"github.com/gabrielevieira/palpitai/backend/internal/usecase"
 )
 
-type websocketHub interface {
+type WebsocketHub interface {
 	ServeWS(w http.ResponseWriter, r *http.Request, userID string, rooms []string)
 }
 
-type realtimePublisher interface {
-	Publish(ctx context.Context, event domain.Event)
+type RealtimeService interface {
+	RealtimePublisher
+	WebsocketHub
 }
 
-type realtimeService interface {
-	realtimePublisher
-	websocketHub
-}
-
-func realtimeHandler(cfg config.Config, db datastore, hub websocketHub) http.HandlerFunc {
+func RealtimeHandler(cfg config.Config, db usecase.Datastore, hub WebsocketHub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if hub == nil {
 			writeError(w, http.StatusServiceUnavailable, "Realtime indisponivel.")
@@ -37,7 +32,7 @@ func realtimeHandler(cfg config.Config, db datastore, hub websocketHub) http.Han
 		rooms := []string{}
 		groupID := r.URL.Query().Get("group_id")
 		if groupID != "" {
-			if err := ensureActiveGroupMember(r.Context(), db, userID, groupID); err != nil {
+			if err := usecase.EnsureActiveGroupMember(r.Context(), db, userID, groupID); err != nil {
 				writeError(w, http.StatusForbidden, "Você precisa participar deste grupo.")
 				return
 			}

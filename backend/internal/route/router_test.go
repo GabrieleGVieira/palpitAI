@@ -1,4 +1,4 @@
-package httpapi
+package route
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/gabrielevieira/palpitai/backend/internal/config"
+	"github.com/gabrielevieira/palpitai/backend/internal/dto"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -17,19 +18,19 @@ type fakeDB struct {
 	err error
 }
 
-func (db fakeDB) Ping(_ context.Context) error {
+func (db fakeDB) Ping(context.Context) error {
 	return db.err
 }
 
-func (db fakeDB) Exec(_ context.Context, _ string, _ ...any) (pgconn.CommandTag, error) {
+func (db fakeDB) Exec(context.Context, string, ...any) (pgconn.CommandTag, error) {
 	return pgconn.CommandTag{}, db.err
 }
 
-func (db fakeDB) QueryRow(_ context.Context, _ string, _ ...any) pgx.Row {
+func (db fakeDB) QueryRow(context.Context, string, ...any) pgx.Row {
 	return fakeRow{err: db.err}
 }
 
-func (db fakeDB) Query(_ context.Context, _ string, _ ...any) (pgx.Rows, error) {
+func (db fakeDB) Query(context.Context, string, ...any) (pgx.Rows, error) {
 	return fakeRows{err: db.err}, db.err
 }
 
@@ -37,7 +38,7 @@ type fakeRow struct {
 	err error
 }
 
-func (row fakeRow) Scan(_ ...any) error {
+func (row fakeRow) Scan(...any) error {
 	return row.err
 }
 
@@ -63,7 +64,7 @@ func (rows fakeRows) Next() bool {
 	return false
 }
 
-func (rows fakeRows) Scan(_ ...any) error {
+func (rows fakeRows) Scan(...any) error {
 	return rows.err
 }
 
@@ -127,7 +128,7 @@ func TestStatusHandler(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, response.Code)
 	}
 
-	var payload statusResponse
+	var payload dto.StatusResponse
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
