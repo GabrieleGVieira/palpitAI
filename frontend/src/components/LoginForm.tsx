@@ -1,5 +1,6 @@
 import { Pressable, View, Text, StyleSheet } from 'react-native';
 import { AuthInputField } from './global/AuthInputField';
+import { FinishButton } from './global/FinishButton';
 type LoginFormProps = {
   setEmail: (email: string) => void;
   setPassword: (password: string) => void;
@@ -62,12 +63,12 @@ export function LoginForm({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
       {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
 
-      <Pressable
-        disabled={isSubmitting || !isConfigured}
+      <FinishButton
+        isLoading={isSubmitting || !isConfigured}
         onPress={handleLogin}
-        style={styles.primaryButton}>
-        <Text style={styles.primaryButtonText}>{isSubmitting ? 'Entrando...' : 'Entrar'}</Text>
-      </Pressable>
+        loadingLabel="Entrando..."
+        waitingLabel="Entrar"
+      />
     </View>
   );
 }

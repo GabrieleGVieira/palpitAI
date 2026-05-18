@@ -1,21 +1,25 @@
 import { Image, StyleSheet, Text, View } from 'react-native';
 
-type SignupHeaderProps = {
+type HeaderProps = {
   title: string;
   subtitle: string;
+  topSpacing?: number;
+  withImage?: boolean;
 };
 
-export function SignupHeader({ title, subtitle }: SignupHeaderProps) {
+export function Header({ title, subtitle, topSpacing = 24, withImage = true }: HeaderProps) {
   return (
-    <View style={styles.header}>
-      <View style={styles.logoMark}>
-        <Image
-          accessibilityIgnoresInvertColors
-          resizeMode="cover"
-          source={require('../../assets/splash-palpitai.png')}
-          style={styles.logoImage}
-        />
-      </View>
+    <View style={[styles.header, { paddingTop: topSpacing }]}>
+      {withImage && (
+        <View style={styles.logoMark}>
+          <Image
+            accessibilityIgnoresInvertColors
+            resizeMode="cover"
+            source={require('../../../assets/splash-palpitai.png')}
+            style={styles.logoImage}
+          />
+        </View>
+      )}
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.subtitle}>{subtitle}</Text>
     </View>
@@ -24,7 +28,7 @@ export function SignupHeader({ title, subtitle }: SignupHeaderProps) {
 
 const styles = StyleSheet.create({
   header: {
-    paddingTop: 20,
+    paddingTop: 24,
   },
   logoMark: {
     alignItems: 'center',

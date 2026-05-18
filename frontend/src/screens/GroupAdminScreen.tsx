@@ -3,9 +3,9 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '../components/global/BackButton';
-import { GroupAdminForm } from '../components/GroupAdminForm';
-import { GroupAdminHeader } from '../components/GroupAdminHeader';
-import { GroupAdminRequests } from '../components/GroupAdminRequests';
+import { GroupAdminForm } from '../components/admin/GroupAdminForm';
+import { GroupAdminHeader } from '../components/admin/GroupAdminHeader';
+import { GroupAdminRequests } from '../components/admin/GroupAdminRequests';
 import { useGroupAdminScreen } from '../hooks/useGroupAdminScreen';
 import type { Group } from '../services/groups';
 

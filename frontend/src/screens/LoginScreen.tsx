@@ -1,16 +1,10 @@
 import { StatusBar } from 'expo-status-bar';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useLoginScreen } from '../hooks/useLoginScreen';
-import { LoginFooter } from '../components/LoginFooter';
-import { LoginHeader } from '../components/LoginHeader';
+import { Footer } from '../components/global/Footer';
+import { Header } from '../components/global/Header';
 import { LoginForm } from '../components/LoginForm';
 
 type LoginScreenProps = {
@@ -45,9 +39,10 @@ export function LoginScreen({ onCreateAccount }: LoginScreenProps) {
           <View style={styles.pitchMarkTop} />
           <View style={styles.pitchCircle} />
 
-          <LoginHeader
+          <Header
             title="Bem-vindo ao PalpitAI"
             subtitle="Entre no seu bolão inteligente e acompanhe palpites, rankings e insights com IA."
+            topSpacing={32}
           />
 
           <LoginForm
@@ -64,7 +59,11 @@ export function LoginScreen({ onCreateAccount }: LoginScreenProps) {
             password={password}
           />
 
-          <LoginFooter onCreateAccount={onCreateAccount} />
+          <Footer
+            question="Ainda não tem conta?"
+            buttonLabel="Criar conta"
+            onButtonPress={onCreateAccount}
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

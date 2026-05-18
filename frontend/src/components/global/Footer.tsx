@@ -1,15 +1,17 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-type SignupFooterProps = {
-  onNavigateToLogin: () => void;
+type FooterProps = {
+  question: string;
+  buttonLabel: string;
+  onButtonPress: () => void;
 };
 
-export function SignupFooter({ onNavigateToLogin }: SignupFooterProps) {
+export function Footer({ question, buttonLabel, onButtonPress }: FooterProps) {
   return (
     <View style={styles.container}>
-      <Text style={styles.question}>Já tem uma conta?</Text>
-      <Pressable onPress={onNavigateToLogin} style={styles.button}>
-        <Text style={styles.buttonText}>Faça login</Text>
+      <Text style={styles.question}>{question}</Text>
+      <Pressable onPress={onButtonPress} style={styles.button}>
+        <Text style={styles.buttonText}>{buttonLabel}</Text>
       </Pressable>
     </View>
   );

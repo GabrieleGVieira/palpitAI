@@ -1,5 +1,5 @@
 import { Text, TextInput, StyleSheet, View } from 'react-native';
-import { SwitchBox } from './global/SwitchBox';
+import { SwitchBox } from './SwitchBox';
 
 type ParticipantsCardProps = {
   hasUnlimitedParticipants: boolean;

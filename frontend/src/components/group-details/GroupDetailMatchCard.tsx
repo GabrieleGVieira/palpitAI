@@ -1,8 +1,9 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import type { GroupMatch } from '../services/groups';
-import type { ScoreDraft } from '../hooks/useGroupDetailScreen';
-import { formatDate, formatMatchStage, formatMatchStatus } from '../hooks/useGroupDetailScreen';
+import type { GroupMatch } from '../../services/groups';
+import type { ScoreDraft } from '../../hooks/useGroupDetailScreen';
+import { formatDate, formatMatchStage, formatMatchStatus } from '../../hooks/useGroupDetailScreen';
+import { FinishButton } from '../global/FinishButton';
 
 type Props = {
   draft: ScoreDraft;
@@ -74,14 +75,12 @@ export function GroupDetailMatchCard({
         </Text>
       )}
 
-      <Pressable
-        disabled={hasStarted || isSaving}
-        onPress={() => void onSavePrediction(match)}
-        style={[styles.saveButton, (hasStarted || isSaving) && styles.buttonDisabled]}>
-        <Text style={styles.saveButtonText}>
-          {hasStarted ? 'Palpites encerrados' : isSaving ? 'Salvando...' : 'Salvar palpite'}
-        </Text>
-      </Pressable>
+      <FinishButton
+        isLoading={hasStarted || isSaving}
+        onPress={() => onSavePrediction(match)}
+        loadingLabel="Salvando..."
+        waitingLabel="Salvar palpite"
+      />
     </View>
   );
 }

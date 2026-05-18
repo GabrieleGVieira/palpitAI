@@ -3,8 +3,8 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useSignupScreen } from '../hooks/useSignupScreen';
-import { SignupFooter } from '../components/SignupFooter';
-import { SignupHeader } from '../components/SignupHeader';
+import { Footer } from '../components/global/Footer';
+import { Header } from '../components/global/Header';
 import { SignupForm } from '../components/SignupForm';
 import { BackButton } from '../components/global/BackButton';
 
@@ -44,9 +44,10 @@ export function SignupScreen({ onBackToLogin }: SignupScreenProps) {
 
           <BackButton onPress={onBackToLogin} />
 
-          <SignupHeader
+          <Header
             title="Crie sua conta"
             subtitle="Monte seus grupos, registre palpites e acompanhe os insights do PalpitAI durante a competição."
+            topSpacing={20}
           />
 
           <SignupForm
@@ -66,7 +67,11 @@ export function SignupScreen({ onBackToLogin }: SignupScreenProps) {
             onBackToLogin={onBackToLogin}
           />
 
-          <SignupFooter onNavigateToLogin={onBackToLogin} />
+          <Footer
+            question="Já tem uma conta?"
+            buttonLabel="Faça login"
+            onButtonPress={onBackToLogin}
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

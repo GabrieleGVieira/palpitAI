@@ -1,4 +1,6 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Header } from '../global/Header';
+import { FinishButton } from '../global/FinishButton';
 
 type HomeHeaderProps = {
   userName?: string;
@@ -9,19 +11,11 @@ type HomeHeaderProps = {
 
 export function HomeHeader({ userName, onCreateGroup, onLogout, isSubmitting }: HomeHeaderProps) {
   return (
-    <View style={styles.header}>
-      <View style={styles.logoMark}>
-        <Image
-          accessibilityIgnoresInvertColors
-          resizeMode="cover"
-          source={require('../../assets/splash-palpitai.png')}
-          style={styles.logoImage}
-        />
-      </View>
-      <Text style={styles.title}>Olá, {userName || 'amigo'}</Text>
-      <Text style={styles.subtitle}>
-        Aqui você acompanha seus grupos e seus palpites com calma.
-      </Text>
+    <View>
+      <Header
+        title={`Olá, ${userName || 'amigo'}`}
+        subtitle="Aqui você acompanha seus grupos e seus palpites com calma."
+      />
 
       <View style={styles.actionTabs}>
         <Pressable onPress={onCreateGroup} style={[styles.tabButton, styles.tabPrimary]}>
@@ -39,43 +33,6 @@ export function HomeHeader({ userName, onCreateGroup, onLogout, isSubmitting }: 
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingTop: 32,
-  },
-  logoMark: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#d9e7d4',
-    borderRadius: 32,
-    borderWidth: 1,
-    height: 64,
-    justifyContent: 'center',
-    marginBottom: 24,
-    overflow: 'hidden',
-    shadowColor: '#1e5c39',
-    shadowOffset: { height: 8, width: 0 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    width: 64,
-  },
-  logoImage: {
-    height: 76,
-    transform: [{ scale: 1.18 }],
-    width: 76,
-  },
-  title: {
-    color: '#123d2a',
-    fontSize: 38,
-    fontWeight: '800',
-    letterSpacing: 0,
-  },
-  subtitle: {
-    color: '#486654',
-    fontSize: 16,
-    lineHeight: 24,
-    marginTop: 12,
-    maxWidth: 340,
-  },
   actionTabs: {
     flexDirection: 'row',
     gap: 10,

@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { RankingEntry } from '../services/groups';
+import { RankingEntry } from '../../services/groups';
 
 export function GroupDetailRankingCard({ entry, key }: { entry: RankingEntry; key: string }) {
   return (

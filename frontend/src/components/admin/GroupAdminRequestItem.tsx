@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { JoinRequest } from '../services/groups';
+import { StyleSheet, Text, View } from 'react-native';
+import type { JoinRequest } from '../../services/groups';
+import { FinishButton } from '../global/FinishButton';
 
 type GroupAdminRequestItemProps = {
   request: JoinRequest;
@@ -20,12 +21,12 @@ export function GroupAdminRequestItem({
         </Text>
         <Text style={styles.requestMeta}>Solicitou entrada</Text>
       </View>
-      <Pressable
-        disabled={isApproving}
+      <FinishButton
+        isLoading={isApproving}
         onPress={() => onApprove(request)}
-        style={[styles.approveButton, isApproving && styles.buttonDisabled]}>
-        <Text style={styles.approveButtonText}>{isApproving ? 'Aprovando...' : 'Aprovar'}</Text>
-      </Pressable>
+        loadingLabel="Aprovando..."
+        waitingLabel="Aprovar"
+      />
     </View>
   );
 }

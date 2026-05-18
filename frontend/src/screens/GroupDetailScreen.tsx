@@ -1,14 +1,14 @@
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { GroupDetailHeader } from '../components/GroupDetailHeader';
-import { GroupDetailMatchCard } from '../components/GroupDetailMatchCard';
+import { GroupDetailHeader } from '../components/group-details/GroupDetailHeader';
+import { GroupDetailMatchCard } from '../components/group-details/GroupDetailMatchCard';
 import { useGroupDetailScreen } from '../hooks/useGroupDetailScreen';
 import type { Group } from '../services/groups';
-import { GroupDetailRankingCard } from '../components/GroupDetailRankingCard';
+import { GroupDetailRankingCard } from '../components/group-details/GroupDetailRankingCard';
 import { EmptyBox } from '../components/global/EmptyBox';
-import { LoadingIndicator } from '../components/LoadingIndicator';
+import { LoadingIndicator } from '../components/global/LoadingIndicator';
 
 type GroupDetailScreenProps = {
   group: Group;

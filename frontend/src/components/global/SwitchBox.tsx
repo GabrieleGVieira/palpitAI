@@ -1,4 +1,4 @@
-import { Pressable, View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Switch } from 'react-native';
 
 export function SwitchBox({
   title,
@@ -17,9 +17,12 @@ export function SwitchBox({
         <Text style={styles.switchTitle}>{title}</Text>
         <Text style={styles.switchSubtitle}>{subtitle}</Text>
       </View>
-      <Pressable onPress={() => onPress(!value)} style={styles.toggleButton}>
-        <Text style={styles.toggleText}>{value ? 'Sim' : 'Não'}</Text>
-      </Pressable>
+      <Switch
+        onValueChange={onPress}
+        thumbColor="#ffffff"
+        trackColor={{ false: '#c9d7c3', true: '#1f7a4a' }}
+        value={value}
+      />
     </View>
   );
 }
@@ -68,5 +71,5 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '700',
-  }
+  },
 });

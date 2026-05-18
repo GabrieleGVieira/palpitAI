@@ -1,8 +1,9 @@
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { AuthInputField } from './global/AuthInputField';
-import { SwitchBox } from './global/SwitchBox';
-import { ParticipantsCard } from './global/ParticipantsCard';
+import { SwitchBox } from '../global/SwitchBox';
+import { ParticipantsCard } from '../global/ParticipantsCard';
+import { GroupBasicFormFields } from '../global/GroupBasicFormFields';
+import { FinishButton } from '../global/FinishButton';
 
 type GroupAdminFormProps = {
   description: string;
@@ -37,27 +38,12 @@ export function GroupAdminForm({
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Informações</Text>
 
-      <AuthInputField
-        autoCapitalize="words"
-        keyboardType="default"
-        label="Nome"
-        onChangeText={setName}
-        placeholder="Nome do grupo"
-        value={name}
+      <GroupBasicFormFields
+        description={description}
+        groupName={name}
+        onChangeDescription={setDescription}
+        onChangeGroupName={setName}
       />
-
-      <View style={styles.fieldGroup}>
-        <Text style={styles.label}>Descrição</Text>
-        <TextInput
-          multiline
-          onChangeText={setDescription}
-          placeholder="Descrição do grupo"
-          placeholderTextColor="#7c8898"
-          style={[styles.input, styles.textArea]}
-          textAlignVertical="top"
-          value={description}
-        />
-      </View>
 
       <ParticipantsCard
         hasUnlimitedParticipants={hasUnlimitedParticipants}
@@ -73,12 +59,12 @@ export function GroupAdminForm({
         onPress={setIsPrivate}
       />
 
-      <Pressable
-        disabled={isSaving}
+      <FinishButton
+        isLoading={isSaving}
         onPress={onSave}
-        style={[styles.primaryButton, isSaving && styles.buttonDisabled]}>
-        <Text style={styles.primaryButtonText}>{isSaving ? 'Salvando...' : 'Salvar'}</Text>
-      </Pressable>
+        loadingLabel="Salvando..."
+        waitingLabel="Salvar"
+      />
     </View>
   );
 }

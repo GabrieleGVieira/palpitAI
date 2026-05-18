@@ -5,10 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NotificationBanner } from '../components/global/NotificationBanner';
 import { useAuth } from '../hooks/useAuth';
 import { useHomeScreen } from '../hooks/useHomeScreen';
-import { GroupListSection } from '../components/GroupListSection';
-import { HomeHeader } from '../components/HomeHeader';
-import { JoinGroupCard } from '../components/JoinGroupCard';
-import { ScoreCard } from '../components/ScoreCard';
+import { GroupListSection } from '../components/group-details/GroupListSection';
+import { HomeHeader } from '../components/home/HomeHeader';
+import { JoinGroupCard } from '../components/home/JoinGroupCard';
+import { ScoreCard } from '../components/home/ScoreCard';
 
 import type { Group } from '../services/groups';
 

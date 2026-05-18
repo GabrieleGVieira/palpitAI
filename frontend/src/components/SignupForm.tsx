@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View, Text } from 'react-native';
 import { AuthInputField } from './global/AuthInputField';
+import { FinishButton } from './global/FinishButton';
 
 type SignupFormProps = {
   setName: (name: string) => void;
@@ -83,14 +84,12 @@ export function SignupForm({
       {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      <Pressable
-        disabled={isSubmitting || !isConfigured}
+      <FinishButton
+        isLoading={isSubmitting || !isConfigured}
         onPress={() => handleSignup(onBackToLogin)}
-        style={styles.primaryButton}>
-        <Text style={styles.primaryButtonText}>
-          {isSubmitting ? 'Criando conta...' : 'Criar conta'}
-        </Text>
-      </Pressable>
+        loadingLabel="Criando conta..."
+        waitingLabel="Criar conta"
+      />
     </View>
   );
 }

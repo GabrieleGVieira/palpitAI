@@ -1,5 +1,6 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import type { Group } from '../services/groups';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { Group } from '../../services/groups';
+import { LoadingIndicator } from '../global/LoadingIndicator';
 
 type GroupListSectionProps = {
   groups: Group[];
@@ -28,12 +29,7 @@ export function GroupListSection({
         </Pressable>
       </View>
 
-      {isLoadingGroups ? (
-        <View style={styles.loadingBox}>
-          <ActivityIndicator color="#1f7a4a" />
-          <Text style={styles.loadingText}>Carregando grupos...</Text>
-        </View>
-      ) : null}
+      {isLoadingGroups ? <LoadingIndicator text="Carregando grupos..." /> : null}
 
       {groupsError ? <Text style={styles.errorText}>{groupsError}</Text> : null}
 
