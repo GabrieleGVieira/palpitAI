@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	apiURL = "https://api.football-data.org/v4/competitions/WC/matches?stage=GROUP_STAGE"
+	// apiURL = "https://api.football-data.org/v4/competitions/BSA/matches?stage=GROUP_STAGE"
+	apiURL = "https://api.football-data.org/v4/competitions/BSA/matches?matchday=17"
 )
 
 type MatchesResponse = dto.FootballDataResponse

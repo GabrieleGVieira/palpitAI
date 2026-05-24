@@ -36,7 +36,7 @@ export async function apiClient<T>(path: string, options: RequestOptions): Promi
     });
   } catch {
     throw new Error(
-      `Não foi possivel acessar a API em ${apiURL}. Verifique se o backend esta rodando e se o celular esta na mesma rede.`,
+      'Não foi possível carregar as informações agora. Tente novamente em instantes.',
     );
   } finally {
     clearTimeout(timeout);
@@ -62,6 +62,8 @@ async function parseJSON<T>(response: Response): Promise<T> {
   try {
     return JSON.parse(responseText) as T;
   } catch {
-    throw new Error(`A API respondeu em formato inesperado: ${responseText}`);
+    throw new Error(
+      'Não foi possível carregar as informações agora. Tente novamente em instantes.',
+    );
   }
 }

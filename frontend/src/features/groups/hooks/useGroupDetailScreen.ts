@@ -24,6 +24,7 @@ export function useGroupDetailScreen(group: Group) {
     matches,
     setError,
     updateDraft,
+    updateMatchFromRealtime,
     updateMatchPrediction,
   } = useGroupMatches(group.id);
   const { isLoadingRanking, loadRanking, ranking, rankingError } = useGroupRanking(group.id);
@@ -56,14 +57,18 @@ export function useGroupDetailScreen(group: Group) {
         event.name === 'match.finished' ||
         event.name === 'match.goal'
       ) {
-        void loadMatches(false);
-      }
+        const wasGroupMatchUpdated = updateMatchFromRealtime(event);
 
-      if (event.name === 'ranking.updated' || event.name === 'match.finished') {
-        void loadRanking(false);
+        if (!wasGroupMatchUpdated) {
+          return;
+        }
+
+        if (event.name === 'match.finished') {
+          void loadRanking(false);
+        }
       }
     },
-    [group.name, loadMatches, loadRanking, showNotification],
+    [group.name, loadRanking, showNotification, updateMatchFromRealtime],
   );
 
   useRealtimeEvents({ groupID: group.id, onEvent: handleRealtimeEvent });

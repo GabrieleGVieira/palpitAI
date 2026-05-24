@@ -21,7 +21,11 @@ export function useGroupRanking(groupID: string) {
   return {
     isLoadingRanking: rankingQuery.isFetching,
     loadRanking,
-    ranking: rankingQuery.data ?? ([] as RankingEntry[]),
-    rankingError: rankingQuery.error instanceof Error ? rankingQuery.error.message : null,
+    // Garante que se não for um array válido, retorna um array vazio imutável
+    ranking: rankingQuery.data || ([] as RankingEntry[]),
+    // Uma checagem mais segura que evita falsos positivos no primeiro render
+    rankingError: rankingQuery.error
+      ? (rankingQuery.error as Error).message || 'Erro ao carregar ranking'
+      : null,
   };
 }

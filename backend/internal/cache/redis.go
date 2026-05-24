@@ -34,18 +34,15 @@ func NewRedisClient(ctx context.Context, redisURL string) (*RedisClient, error) 
 	opts.MinIdleConns = 1
 
 	client := redis.NewClient(opts)
-	cache := &RedisClient{client: client}
-
-	if err := cache.Ping(ctx); err != nil {
-		_ = client.Close()
-		return nil, err
-	}
-
-	return cache, nil
+	return &RedisClient{client: client}, nil
 }
 
-func (cache *RedisClient) Ping(ctx context.Context) error {
-	return cache.client.Ping(ctx).Err()
+func (cache *RedisClient) Publish(ctx context.Context, channel string, payload []byte) error {
+	return cache.client.Publish(ctx, channel, payload).Err()
+}
+
+func (cache *RedisClient) Subscribe(ctx context.Context, channel string) *redis.PubSub {
+	return cache.client.Subscribe(ctx, channel)
 }
 
 func (cache *RedisClient) Close() error {

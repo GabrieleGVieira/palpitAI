@@ -10,6 +10,7 @@ import (
 )
 
 func HasLiveOrSoonMatches(ctx context.Context, db Querier) (bool, error) {
+	// 1. Verifica se existe partida ao vivo ou partida prestes a comecar.
 	var exists bool
 	err := db.QueryRow(ctx, `
 		select exists (
@@ -23,10 +24,12 @@ func HasLiveOrSoonMatches(ctx context.Context, db Querier) (bool, error) {
 		)
 	`).Scan(&exists)
 
+	// 2. Retorna o booleano calculado pelo banco junto com qualquer erro da consulta.
 	return exists, err
 }
 
 func MatchSnapshotByProviderMatch(ctx context.Context, db Querier, match domain.ProviderMatch) (domain.MatchSnapshot, error) {
+	// 1. Procura a partida pela chave natural usada no upsert: mandante, visitante e horario.
 	var snapshot domain.MatchSnapshot
 	err := db.QueryRow(ctx, `
 		select id, status, home_score, away_score
@@ -39,15 +42,19 @@ func MatchSnapshotByProviderMatch(ctx context.Context, db Querier, match domain.
 		&snapshot.AwayScore,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
+		// 2. Converte o erro especifico do pgx para o erro padronizado dos repositorios.
 		return domain.MatchSnapshot{}, ErrNotFound
 	}
 
+	// 3. Retorna o snapshot encontrado ou propaga erro de leitura.
 	return snapshot, err
 }
 
 func UpsertProviderMatch(ctx context.Context, db Querier, match domain.ProviderMatch) (int, string, error) {
+	// 1. Prepara variaveis que receberao o ID da partida e se houve insert/update real.
 	var matchID string
 	var changed bool
+	// 2. Insere a partida ou atualiza campos que mudaram no provedor.
 	err := db.QueryRow(ctx, `
 		with upserted as (
 			insert into world_cup_matches (
@@ -76,6 +83,7 @@ func UpsertProviderMatch(ctx context.Context, db Querier, match domain.ProviderM
 			)
 			on conflict (home_team, away_team, kickoff_at)
 			do update set
+				-- 3. Preserva external_id antigo quando o provedor nao envia um novo valor.
 				external_id = coalesce(excluded.external_id, world_cup_matches.external_id),
 				stage = excluded.stage,
 				status = excluded.status,
@@ -86,6 +94,7 @@ func UpsertProviderMatch(ctx context.Context, db Querier, match domain.ProviderM
 					else null
 				end,
 				last_synced_at = now()
+			-- 4. So executa update quando algum campo relevante mudou.
 			where world_cup_matches.external_id is distinct from coalesce(excluded.external_id, world_cup_matches.external_id)
 				or world_cup_matches.stage is distinct from excluded.stage
 				or world_cup_matches.status is distinct from excluded.status
@@ -95,8 +104,10 @@ func UpsertProviderMatch(ctx context.Context, db Querier, match domain.ProviderM
 		)
 		select id, changed
 		from (
+			-- 5. Se houve insert/update, retorna essa linha marcada como alterada.
 			select id, changed from upserted
 			union all
+			-- 6. Se nada mudou, recupera o ID da partida existente marcada como nao alterada.
 			select id, false as changed
 			from world_cup_matches
 			where home_team = $2 and away_team = $3 and kickoff_at = $5
@@ -108,19 +119,23 @@ func UpsertProviderMatch(ctx context.Context, db Querier, match domain.ProviderM
 		return 0, "", err
 	}
 
+	// 7. Traduz o booleano changed para contador de linhas alteradas usado no resumo.
 	if changed {
 		return 1, matchID, nil
 	}
 
+	// 8. Retorna o ID mesmo quando nao houve alteracao, pois os gols e palpites ainda usam esse ID.
 	return 0, matchID, nil
 }
 
 func InsertGoalEvent(ctx context.Context, db Querier, matchID string, goal domain.ProviderGoal) (bool, error) {
+	// 1. Guarda o gol completo como JSON para auditoria e possivel uso futuro.
 	payload, err := json.Marshal(goal)
 	if err != nil {
 		return false, err
 	}
 
+	// 2. Insere o evento de gol usando external_key como chave idempotente.
 	commandTag, err := db.Exec(ctx, `
 		insert into match_events (
 			match_id,
@@ -142,16 +157,21 @@ func InsertGoalEvent(ctx context.Context, db Querier, matchID string, goal domai
 		return false, err
 	}
 
+	// 3. Retorna true apenas quando uma nova linha foi criada.
 	return commandTag.RowsAffected() > 0, nil
 }
 
 func ScoreProviderMatchPredictions(ctx context.Context, db Querier, matchID string, homeScore int, awayScore int) (int, error) {
+	// 1. Recalcula a pontuacao dos palpites da partida com base no placar recebido.
 	commandTag, err := db.Exec(ctx, `
 		update predictions p
 		set
 			points = case
+				-- 2. Placar exato recebe pontuacao maxima.
 				when p.home_score = $2 and p.away_score = $3 then 10
+				-- 3. Mesmo vencedor ou empate recebe pontuacao parcial.
 				when sign(p.home_score - p.away_score) = sign($2 - $3) then 5
+				-- 4. Resultado incorreto nao recebe pontos.
 				else 0
 			end,
 			scored_at = now(),
@@ -159,6 +179,7 @@ func ScoreProviderMatchPredictions(ctx context.Context, db Querier, matchID stri
 		from world_cup_matches m
 		where p.match_id = m.id
 			and m.id = $1
+			-- 5. Atualiza apenas linhas cuja pontuacao realmente mudaria.
 			and p.points is distinct from case
 				when p.home_score = $2 and p.away_score = $3 then 10
 				when sign(p.home_score - p.away_score) = sign($2 - $3) then 5
@@ -169,10 +190,12 @@ func ScoreProviderMatchPredictions(ctx context.Context, db Querier, matchID stri
 		return 0, err
 	}
 
+	// 6. Retorna quantos palpites tiveram pontuacao alterada.
 	return int(commandTag.RowsAffected()), nil
 }
 
 func AffectedGroupsByMatch(ctx context.Context, db Querier, matchID string) ([]domain.AffectedGroup, error) {
+	// 1. Busca grupos que possuem ao menos um palpite para a partida.
 	rows, err := db.Query(ctx, `
 		select distinct g.id::text, g.name
 		from groups g
@@ -185,6 +208,7 @@ func AffectedGroupsByMatch(ctx context.Context, db Querier, matchID string) ([]d
 	}
 	defer rows.Close()
 
+	// 2. Percorre o cursor e converte cada linha em AffectedGroup.
 	groups := []domain.AffectedGroup{}
 	for rows.Next() {
 		var group domain.AffectedGroup
@@ -195,13 +219,16 @@ func AffectedGroupsByMatch(ctx context.Context, db Querier, matchID string) ([]d
 		groups = append(groups, group)
 	}
 
+	// 3. Retorna os grupos acumulados e qualquer erro ocorrido durante a iteracao.
 	return groups, rows.Err()
 }
 
 func nullableString(value string) *string {
+	// 1. Converte string vazia para nil para persistir NULL no banco.
 	if value == "" {
 		return nil
 	}
 
+	// 2. Para valores preenchidos, retorna ponteiro para permitir uso em parametros nullable.
 	return &value
 }

@@ -14,3 +14,6 @@ vet:
 
 seed:
 	go run ./cmd/seed/main.go
+
+matchsync:
+	go run ./cmd/matchsync/main.go

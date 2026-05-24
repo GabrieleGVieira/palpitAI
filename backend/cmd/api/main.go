@@ -48,6 +48,10 @@ func main() {
 	}
 
 	realtimeHub := realtime.NewHub(logger)
+	appCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	go realtime.SubscribeRedis(appCtx, redisClient, realtimeHub, logger)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -64,10 +68,7 @@ func main() {
 		}
 	}()
 
-	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	<-shutdownCtx.Done()
+	<-appCtx.Done()
 	logger.Info("api server shutting down")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

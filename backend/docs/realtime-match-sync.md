@@ -41,12 +41,12 @@ No MVP, `matchsync` publica eventos no `realtime.Hub`, que entrega para clientes
 
 ## Polling Inteligente
 
-- `LIVE`: a cada 30s, mas apenas se houver jogo `live` no DB ou jogo entre `now - 3h` e `now + 30min`.
+- `LIVE`: a cada 30s, buscando uma janela recente por data para capturar jogos ao vivo e jogos que acabaram entre um poll e outro.
 - `TODAY`: a cada 5min, busca jogos do dia sem depender do DB.
 - `UPCOMING`: a cada 1h, busca proximos 30 dias para manter agenda atualizada.
 - Rate limit global: 1 request a cada 6s por processo.
 
-Essa estrategia fica abaixo de 10 req/min e evita gastar chamada live fora de janela de jogo.
+Essa estrategia fica abaixo de 10 req/min e evita perder a transicao de `live` para `finished`.
 
 ## Detecção de Mudanças
 
@@ -86,7 +86,7 @@ Campos importantes em `world_cup_matches`:
 
 Indices:
 
-- `(status, kickoff_at)` para janela live.
+- `(status, kickoff_at)` para consultas de partidas ativas/recentes.
 - `external_id where external_id is not null`.
 - `match_events(match_id, event_type, minute)`.
 

@@ -13,21 +13,21 @@ const steps = [
     title: 'Crie grupos e dispute rodada por rodada',
     description:
       'Monte bolões privados, convide sua turma e acompanhe quem está subindo no ranking.',
-    image: require('../../assets/onboarding-groups.png'),
+    image: require('../../../../assets/onboarding-groups.png'),
   },
   {
     eyebrow: 'Insights com IA',
     title: 'Receba contexto antes de palpitar',
     description:
       'Veja tendências, momento das seleções e sinais úteis para decidir seu palpite com mais clareza.',
-    image: require('../../assets/onboarding-ai.png'),
+    image: require('../../../../assets/onboarding-ai.png'),
   },
   {
     eyebrow: 'Tempo real',
     title: 'Ranking vivo durante os jogos',
     description:
       'Acompanhe mudanças na pontuação, palpites do grupo e resultados sem perder o clima de torcida.',
-    image: require('../../assets/onboarding-live.png'),
+    image: require('../../../../assets/onboarding-live.png'),
   },
 ];
 
@@ -57,7 +57,7 @@ export function OnboardingScreen({ onFinish }: OnboardingScreenProps) {
             <Image
               accessibilityIgnoresInvertColors
               resizeMode="cover"
-              source={require('../../assets/splash-palpitai.png')}
+              source={require('../../../../assets/splash-palpitai.png')}
               style={styles.logoImage}
             />
           </View>

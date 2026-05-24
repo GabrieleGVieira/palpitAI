@@ -10,13 +10,13 @@ import (
 
 type Services struct {
 	Realtime controller.RealtimeService
-	Redis    controller.PingService
+	Redis    controller.RedisStatusService
 }
 
 func NewRouter(cfg config.Config, db usecase.Datastore, services ...Services) http.Handler {
 	mux := http.NewServeMux()
 	var realtimeHub controller.RealtimeService
-	var redis controller.PingService
+	var redis controller.RedisStatusService
 	if len(services) > 0 {
 		realtimeHub = services[0].Realtime
 		redis = services[0].Redis

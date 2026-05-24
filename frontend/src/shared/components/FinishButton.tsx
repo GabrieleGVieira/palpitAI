@@ -3,18 +3,38 @@ import { Pressable, Text, StyleSheet } from 'react-native';
 import { colors, typography } from '../theme';
 
 type Props = {
+  disabledLabel?: string;
+  isDisabled?: boolean;
   isLoading: boolean;
   onPress: () => void;
   loadingLabel: string;
   waitingLabel: string;
 };
-export function FinishButton({ isLoading, onPress, loadingLabel, waitingLabel }: Props) {
+export function FinishButton({
+  disabledLabel,
+  isDisabled = false,
+  isLoading,
+  onPress,
+  loadingLabel,
+  waitingLabel,
+}: Props) {
+  const isUnavailable = isDisabled || isLoading;
+  const label = isLoading
+    ? loadingLabel
+    : isDisabled && disabledLabel
+      ? disabledLabel
+      : waitingLabel;
+
   return (
     <Pressable
-      disabled={isLoading}
+      disabled={isUnavailable}
       onPress={onPress}
-      style={[styles.primaryButton, isLoading && styles.buttonDisabled]}>
-      <Text style={styles.primaryButtonText}>{isLoading ? loadingLabel : waitingLabel}</Text>
+      style={[
+        styles.primaryButton,
+        isDisabled && styles.primaryButtonDisabled,
+        isLoading && styles.buttonDisabled,
+      ]}>
+      <Text style={styles.primaryButtonText}>{label}</Text>
     </Pressable>
   );
 }
@@ -26,6 +46,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     minHeight: 52,
+  },
+  primaryButtonDisabled: {
+    backgroundColor: '#8a9490',
   },
   primaryButtonText: {
     color: colors.white,

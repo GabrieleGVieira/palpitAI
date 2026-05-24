@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { GroupMatch } from '../../services/groups';
 import type { ScoreDraft } from '../../types';
@@ -21,6 +21,12 @@ export function GroupDetailMatchCard({
   onSavePrediction,
 }: Props) {
   const hasStarted = new Date(match.kickoff_at).getTime() <= Date.now();
+  const isLive = match.status === 'live';
+  const isPredictionClosed = hasStarted || match.status !== 'scheduled';
+  const liveHomeScore = match.final_home_score ?? '-';
+  const liveAwayScore = match.final_away_score ?? '-';
+  const disabledLabel = getDisabledPredictionLabel(match.status, hasStarted);
+
   return (
     <View style={styles.matchCard}>
       <View style={styles.matchHeader}>
@@ -71,18 +77,52 @@ export function GroupDetailMatchCard({
         </View>
       ) : (
         <Text style={[styles.predictionText, styles.predictionTextSolo]}>
-          Você ainda não palpitou neste jogo.
+          Você não palpitou neste jogo.
         </Text>
       )}
 
-      <FinishButton
-        isLoading={hasStarted || isSaving}
-        onPress={() => onSavePrediction(match)}
-        loadingLabel="Salvando..."
-        waitingLabel="Salvar palpite"
-      />
+      {isLive ? (
+        <View style={styles.liveBox}>
+          <View style={styles.liveLabelRow}>
+            <ActivityIndicator color="#c23f34" size="small" />
+            <Text style={styles.liveLabel}>Ao vivo</Text>
+          </View>
+          <Text style={styles.liveScore}>
+            {match.home_team} {liveHomeScore} x {liveAwayScore} {match.away_team}
+          </Text>
+        </View>
+      ) : (
+        <FinishButton
+          disabledLabel={disabledLabel}
+          isDisabled={isPredictionClosed}
+          isLoading={isSaving}
+          onPress={() => onSavePrediction(match)}
+          loadingLabel="Salvando..."
+          waitingLabel="Salvar palpite"
+        />
+      )}
     </View>
   );
+}
+
+function getDisabledPredictionLabel(status: GroupMatch['status'], hasStarted: boolean) {
+  if (status === 'finished') {
+    return 'Jogo encerrado';
+  }
+
+  if (status === 'cancelled') {
+    return 'Jogo cancelado';
+  }
+
+  if (status === 'postponed') {
+    return 'Palpite indisponível';
+  }
+
+  if (hasStarted) {
+    return 'Palpites encerrados';
+  }
+
+  return 'Salvar palpite';
 }
 
 const styles = StyleSheet.create({
@@ -189,6 +229,36 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     paddingHorizontal: 10,
     paddingVertical: 6,
+  },
+  liveBox: {
+    alignItems: 'center',
+    backgroundColor: '#fff2f0',
+    borderColor: '#f0b8b1',
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 6,
+    justifyContent: 'center',
+    marginTop: 14,
+    minHeight: 52,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  liveLabel: {
+    color: '#a03222',
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  liveLabelRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  liveScore: {
+    color: '#123d2a',
+    fontSize: 14,
+    fontWeight: '900',
+    textAlign: 'center',
   },
   saveButton: {
     alignItems: 'center',
