@@ -9,6 +9,8 @@ import {
   type JoinRequest,
 } from '../services/groups';
 
+const emptyJoinRequests: JoinRequest[] = [];
+
 export function useGroupAdminScreen(
   group: Group,
   onGroupUpdated: (group: Group) => void,
@@ -49,12 +51,9 @@ export function useGroupAdminScreen(
   const loadRequests = useCallback(async () => {
     setError(null);
     const result = await refetchRequests();
-    if (result.error) {
-      setError(
-        result.error instanceof Error
-          ? result.error.message
-          : 'Não foi possível carregar solicitações.',
-      );
+    const nextError = queryErrorMessage(result.error, 'Não foi possível carregar solicitações.');
+    if (nextError) {
+      setError(nextError);
     }
   }, [refetchRequests]);
 
@@ -85,9 +84,7 @@ export function useGroupAdminScreen(
       setSuccessMessage('Grupo atualizado.');
       onBack();
     } catch (saveError) {
-      setError(
-        saveError instanceof Error ? saveError.message : 'Não foi possível atualizar o grupo.',
-      );
+      setError(queryErrorMessage(saveError, 'Não foi possível atualizar o grupo.'));
     }
   }
 
@@ -105,11 +102,7 @@ export function useGroupAdminScreen(
       });
       setSuccessMessage('Solicitação aprovada.');
     } catch (approveError) {
-      setError(
-        approveError instanceof Error
-          ? approveError.message
-          : 'Não foi possível aprovar a solicitação.',
-      );
+      setError(queryErrorMessage(approveError, 'Não foi possível aprovar a solicitação.'));
     } finally {
       setApprovingUserID(null);
     }
@@ -118,7 +111,13 @@ export function useGroupAdminScreen(
   return {
     approvingUserID,
     description,
-    error,
+    error:
+      error !== null
+        ? error
+        : queryErrorMessage(
+            requestsQuery.isError ? requestsQuery.error : null,
+            'Não foi possível carregar solicitações.',
+          ),
     hasUnlimitedParticipants,
     isLoadingRequests: requestsQuery.isLoading,
     isPrivate,
@@ -126,7 +125,7 @@ export function useGroupAdminScreen(
     loadRequests,
     name,
     participantLimit,
-    requests: requestsQuery.data ?? ([] as JoinRequest[]),
+    requests: Array.isArray(requestsQuery.data) ? requestsQuery.data : emptyJoinRequests,
     setDescription,
     setHasUnlimitedParticipants,
     setIsPrivate,
@@ -137,4 +136,23 @@ export function useGroupAdminScreen(
     handleApprove,
     handleSaveGroup,
   };
+}
+
+function queryErrorMessage(error: unknown, fallback: string) {
+  if (error == null) {
+    return null;
+  }
+
+  if (typeof error === 'string') {
+    return error.trim() || fallback;
+  }
+
+  if (typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+  }
+
+  return fallback;
 }

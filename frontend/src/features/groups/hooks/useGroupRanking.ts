@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 
 import { listGroupRanking, type RankingEntry } from '../services/groups';
 
+const emptyRanking: RankingEntry[] = [];
+
 export function useGroupRanking(groupID: string) {
   const rankingQuery = useQuery({
     enabled: false,
@@ -21,11 +23,29 @@ export function useGroupRanking(groupID: string) {
   return {
     isLoadingRanking: rankingQuery.isFetching,
     loadRanking,
-    // Garante que se não for um array válido, retorna um array vazio imutável
-    ranking: rankingQuery.data || ([] as RankingEntry[]),
-    // Uma checagem mais segura que evita falsos positivos no primeiro render
-    rankingError: rankingQuery.error
-      ? (rankingQuery.error as Error).message || 'Erro ao carregar ranking'
-      : null,
+    ranking: Array.isArray(rankingQuery.data) ? rankingQuery.data : emptyRanking,
+    rankingError: queryErrorMessage(
+      rankingQuery.isError ? rankingQuery.error : null,
+      'Erro ao carregar ranking',
+    ),
   };
+}
+
+function queryErrorMessage(error: unknown, fallback: string) {
+  if (error == null) {
+    return null;
+  }
+
+  if (typeof error === 'string') {
+    return error.trim() || fallback;
+  }
+
+  if (typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+  }
+
+  return fallback;
 }

@@ -146,7 +146,7 @@ export function useCreateGroupScreen(
       await createGroupMutation.mutateAsync(payload);
       onGroupCreated();
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : 'Não foi possível criar o grupo.');
+      setFormError(errorMessage(error, 'Não foi possível criar o grupo.'));
     }
   }
 
@@ -188,4 +188,23 @@ export function useCreateGroupScreen(
     setHasUnlimitedParticipants,
     setIsPrivate,
   };
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  if (error == null) {
+    return fallback;
+  }
+
+  if (typeof error === 'string') {
+    return error.trim() || fallback;
+  }
+
+  if (typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+  }
+
+  return fallback;
 }

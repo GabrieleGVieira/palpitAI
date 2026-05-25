@@ -28,21 +28,33 @@ export async function connectRealtime({ groupID, onEvent }: RealtimeOptions) {
 
     socket = new WebSocket(url.toString());
 
+    socket.onopen = () => {
+      console.info('Realtime conectado.', { groupID });
+    };
+
     socket.onmessage = (message) => {
       try {
-        onEvent(JSON.parse(String(message.data)));
+        const event = JSON.parse(String(message.data));
+        console.info('Realtime recebido.', {
+          matchID: event?.payload?.match_id,
+          name: event?.name,
+          room: event?.room,
+        });
+        onEvent(event);
       } catch {
         // REST remains the source of truth if a realtime message is malformed.
       }
     };
 
-    socket.onclose = () => {
+    socket.onclose = (event) => {
+      console.warn('Realtime desconectado.', { code: event.code, groupID, reason: event.reason });
       if (!isClosed) {
         reconnectTimer = setTimeout(connect, reconnectDelayMs);
       }
     };
 
     socket.onerror = () => {
+      console.warn('Realtime encontrou um erro de conexão.', { groupID });
       socket?.close();
     };
   }

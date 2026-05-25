@@ -71,7 +71,7 @@ export function GroupDetailMatchCard({
           <Text style={styles.predictionText}>
             Seu palpite: {match.my_prediction.home_score} x {match.my_prediction.away_score}
           </Text>
-          {match.my_prediction.points !== null ? (
+          {match.my_prediction.points !== null && match.status === "finished" ? (
             <Text style={styles.pointsText}>{match.my_prediction.points} pts</Text>
           ) : null}
         </View>
@@ -229,6 +229,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     paddingHorizontal: 10,
     paddingVertical: 6,
+    marginBottom: 5,
   },
   liveBox: {
     alignItems: 'center',

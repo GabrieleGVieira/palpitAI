@@ -98,9 +98,7 @@ export function useGroupDetailScreen(group: Group) {
       await loadRanking();
       setSuccessMessage('Palpite salvo.');
     } catch (saveError) {
-      setError(
-        saveError instanceof Error ? saveError.message : 'Não foi possível salvar o palpite.',
-      );
+      setError(errorMessage(saveError, 'Não foi possível salvar o palpite.'));
     } finally {
       setSavingMatchID(null);
     }
@@ -124,4 +122,23 @@ export function useGroupDetailScreen(group: Group) {
     successMessage,
     updateDraft,
   };
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  if (error == null) {
+    return fallback;
+  }
+
+  if (typeof error === 'string') {
+    return error.trim() || fallback;
+  }
+
+  if (typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+  }
+
+  return fallback;
 }

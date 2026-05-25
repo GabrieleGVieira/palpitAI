@@ -5,6 +5,8 @@ import { listGroupMatches, type GroupMatch } from '../services/groups';
 import type { RealtimeEvent } from '../../realtime/types';
 import type { ScoreDraft } from '../types';
 
+const emptyMatches: GroupMatch[] = [];
+
 export function useGroupMatches(groupID: string) {
   const [drafts, setDrafts] = useState<Record<string, ScoreDraft>>({});
   const [error, setError] = useState<string | null>(null);
@@ -15,7 +17,7 @@ export function useGroupMatches(groupID: string) {
   });
   const refetchMatches = matchesQuery.refetch;
 
-  const matches = matchesQuery.data ?? [];
+  const matches = Array.isArray(matchesQuery.data) ? matchesQuery.data : emptyMatches;
 
   useEffect(() => {
     if (matchesQuery.data) {
@@ -27,8 +29,9 @@ export function useGroupMatches(groupID: string) {
     async (showLoading = true) => {
       setError(null);
       const result = await refetchMatches({ cancelRefetch: showLoading });
-      if (result.error) {
-        setError(errorMessage(result.error, 'Não foi possível carregar jogos.'));
+      const nextError = queryErrorMessage(result.error, 'Não foi possível carregar jogos.');
+      if (nextError) {
+        setError(nextError);
       }
     },
     [refetchMatches],
@@ -108,10 +111,12 @@ export function useGroupMatches(groupID: string) {
   return {
     drafts,
     error:
-      error ||
-      (matchesQuery.error
-        ? errorMessage(matchesQuery.error, 'Não foi possível carregar jogos.')
-        : null),
+      error !== null
+        ? error
+        : queryErrorMessage(
+            matchesQuery.isError ? matchesQuery.error : null,
+            'Não foi possível carregar jogos.',
+          ),
     isLoading: matchesQuery.isLoading,
     loadMatches,
     matches,
@@ -120,10 +125,6 @@ export function useGroupMatches(groupID: string) {
     updateMatchFromRealtime,
     updateMatchPrediction,
   };
-}
-
-function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
 }
 
 function buildDrafts(matches: GroupMatch[]) {
@@ -136,6 +137,25 @@ function buildDrafts(matches: GroupMatch[]) {
       },
     ]),
   ) as Record<string, ScoreDraft>;
+}
+
+function queryErrorMessage(error: unknown, fallback: string) {
+  if (error == null) {
+    return null;
+  }
+
+  if (typeof error === 'string') {
+    return error.trim() || fallback;
+  }
+
+  if (typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+  }
+
+  return fallback;
 }
 
 function stringValue(value: unknown) {

@@ -35,7 +35,7 @@ export function useJoinGroupForm(onJoined: () => Promise<void>) {
       );
       await onJoined();
     } catch (error) {
-      setJoinError(error instanceof Error ? error.message : 'Não foi possível entrar no grupo.');
+      setJoinError(errorMessage(error, 'Não foi possível entrar no grupo.'));
     }
   }, [inviteCode, joinMutation, onJoined]);
 
@@ -47,4 +47,23 @@ export function useJoinGroupForm(onJoined: () => Promise<void>) {
     joinSuccess,
     setInviteCode,
   };
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  if (error == null) {
+    return fallback;
+  }
+
+  if (typeof error === 'string') {
+    return error.trim() || fallback;
+  }
+
+  if (typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) {
+      return message;
+    }
+  }
+
+  return fallback;
 }
