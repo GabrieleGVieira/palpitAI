@@ -167,11 +167,23 @@ func ScoreProviderMatchPredictions(ctx context.Context, db Querier, matchID stri
 		update predictions p
 		set
 			points = case
-				-- 2. Placar exato recebe pontuacao maxima.
+				-- 1. Placar exato recebe pontuação máxima.
 				when p.home_score = $2 and p.away_score = $3 then 10
-				-- 3. Mesmo vencedor ou empate recebe pontuacao parcial.
+
+				-- 2. Acertou o vencedor/empate E TAMBÉM o número de gols de um dos times.
+				-- (Exemplo: Jogo 2x1, Palpite 2x0. Ganha 5 pelo vencedor + bônus de gols = 7 pontos)
+				-- Se no seu bolão isso acumula, o ideal é criar uma faixa intermediária, por exemplo, 7 pontos:
+				when sign(p.home_score - p.away_score) = sign($2 - $3) 
+					and (p.home_score = $2 or p.away_score = $3) then 7
+
+				-- 3. Mesmo vencedor ou empate (sem acertar nenhum gol exato).
 				when sign(p.home_score - p.away_score) = sign($2 - $3) then 5
-				-- 4. Resultado incorreto nao recebe pontos.
+
+				-- 4. Errou o vencedor, mas acertou a quantidade de gols de um dos times.
+				-- (Exemplo: Jogo 2x1, Palpite 0x1. Errou quem venceu, mas cravou os gols do visitante).
+				when p.home_score = $2 or p.away_score = $3 then 3
+
+				-- 5. Resultado incorreto não recebe pontos.
 				else 0
 			end,
 			scored_at = now(),
