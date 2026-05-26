@@ -32,12 +32,14 @@ O app nunca chama IA diretamente. O app lê explicações previamente salvas em 
 ## Variáveis de ambiente
 
 ```bash
-OPENAI_API_KEY=...
-OPENAI_MODEL=gpt-4.1-mini
-OPENAI_TIMEOUT_SECONDS=30
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_REQUEST_DELAY_SECONDS=15
+GEMINI_TIMEOUT_SECONDS=30
 ```
 
-`OPENAI_MODEL` pode ser trocado sem alterar código.
+`GEMINI_MODEL` pode ser trocado sem alterar código.
+`GEMINI_REQUEST_DELAY_SECONDS` controla o intervalo entre chamadas do worker para respeitar limites de RPM.
 
 ## Como rodar
 
@@ -97,9 +99,10 @@ Formato obrigatório:
 
 ## Cuidados
 
-- Não logar `OPENAI_API_KEY`.
+- Não logar `GEMINI_API_KEY`.
+- Preservar explicações `generated` quando uma nova tentativa falhar ou for limitada pela API.
 - Não gerar explicação quando faltarem previsões essenciais.
-- Não sobrescrever explicação `generated` com a mesma `prompt_version`.
+- Sobrescrever explicação `generated` somente quando a nova geração também terminar como `generated`.
 - Permitir reprocessar registros `failed` ou `skipped`.
 
 ## Próximos passos
@@ -107,4 +110,3 @@ Formato obrigatório:
 - Expor explicação no endpoint futuro de leitura de previsão.
 - Adicionar dashboard operacional para falhas de geração.
 - Versionar novos prompts com `prediction-explanation-v2`.
-

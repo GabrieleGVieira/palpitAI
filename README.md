@@ -1,114 +1,112 @@
 # PalpitAI
 
-App mobile de bolao da Copa do Mundo com grupos, palpites, ranking em tempo real e base preparada para recursos de IA.
+App mobile de bolão da Copa do Mundo 2026 com grupos, palpites, ranking em tempo real e previsões geradas por machine learning.
 
-## Stack
+## O que é
 
-| Camada | Tecnologias |
-| --- | --- |
-| Mobile | React Native, Expo, TypeScript, Supabase Auth, React Query |
-| API | Go, net/http, WebSocket |
-| Banco | Supabase/Postgres |
-| Realtime | WebSocket no backend + sync de placares via football-data.org |
-| Qualidade | ESLint, Prettier, Vitest, Husky, Commitlint |
+PalpitAI é um bolão social onde usuários criam ou entram em grupos, registram palpites para cada partida da Copa do Mundo e acompanham o ranking em tempo real. O app combina uma API em Go com um pipeline de ML em Python para gerar previsões de resultado e placar com explicações em linguagem natural via LLM.
 
-## Estrutura
+## Arquitetura
 
 ```text
 palpitAI/
-├── backend/
-│   ├── cmd/
-│   │   ├── api/          # API HTTP/WebSocket
-│   │   ├── matchsync/    # worker separado de sincronizacao de jogos
-│   │   └── seed/         # carga inicial de dados
-│   ├── docs/
-│   ├── internal/
-│   │   ├── controller/
-│   │   ├── domain/
-│   │   ├── dto/
-│   │   ├── matchsync/
-│   │   ├── realtime/
-│   │   ├── repositories/
-│   │   ├── route/
-│   │   └── usecase/
-│   └── Makefile
-├── frontend/
-│   ├── App.tsx
-│   ├── src/
-│   │   ├── features/     # auth, groups, onboarding, realtime
-│   │   ├── navigation/   # fluxo de telas do app
-│   │   ├── services/     # clientes globais, como Supabase
-│   │   └── shared/       # UI, hooks, query, theme e api client
-│   └── package.json
-└── README.md
+├── backend/      # API HTTP/WebSocket em Go
+├── frontend/     # App mobile React Native + Expo
+├── ml-service/   # Pipeline ML e API de inferência em Python
+└── docs/         # Documentação técnica dos motores de IA e métricas
 ```
+
+## Stack
+
+| Camada       | Tecnologias                                              |
+| ------------ | -------------------------------------------------------- |
+| Mobile       | React Native, Expo, TypeScript, Supabase Auth, React Query |
+| API          | Go, net/http, WebSocket, Redis                           |
+| ML           | Python, scikit-learn, FastAPI, pandas                    |
+| Banco        | PostgreSQL (Supabase)                                    |
+| Cache        | Redis (Upstash)                                          |
+| IA           | Gemini API para explicações                              |
+| Dados        | football-data.org, CSVs históricos de partidas internacionais |
 
 ## Requisitos
 
-- Node.js
-- npm
 - Go 1.24+
-- Conta/projeto Supabase
-- Token do football-data.org para sincronizacao automatica dos jogos
-- Expo Go, Android Emulator ou iOS Simulator para rodar o app
+- Node.js + npm
+- Python 3.11+
+- Projeto Supabase (PostgreSQL)
+- Redis (Upstash)
+- Token da [football-data.org](https://www.football-data.org/)
+- Chave da Gemini API
+- Expo Go, Android Emulator ou iOS Simulator
 
-## Configuracao
+## Configuração
 
-Backend:
+**Backend:**
 
 ```bash
 cd backend
 cp .env.example .env
 ```
 
-Variaveis principais:
-
-```bash
+```env
 APP_ENV=development
 PORT=3000
 DATABASE_URL=postgresql://postgres:password@db.project.supabase.co:5432/postgres
+REDIS_URL=redis://default:token@host.upstash.io:6379
 SUPABASE_URL=https://project.supabase.co
-SUPABASE_KEY=cole_a_chave_publica_aqui
+SUPABASE_KEY=chave_publica
 FOOTBALL_DATA_API_BASE_URL=https://api.football-data.org/v4
 FOOTBALL_DATA_COMPETITION_CODE=WC
 FOOTBALL_DATA_SEASON=2026
-FOOTBALL_DATA_TOKEN=cole_o_token_aqui
+FOOTBALL_DATA_TOKEN=token
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_REQUEST_DELAY_SECONDS=15
+GEMINI_TIMEOUT_SECONDS=30
 ```
 
-Frontend:
+**Frontend:**
 
 ```bash
 cd frontend
 cp .env.example .env
 ```
 
-Variaveis principais:
-
-```bash
+```env
 EXPO_PUBLIC_SUPABASE_URL=https://project.supabase.co
-EXPO_PUBLIC_SUPABASE_KEY=cole_a_chave_publica_aqui
+EXPO_PUBLIC_SUPABASE_KEY=chave_publica
 EXPO_PUBLIC_API_URL=http://SEU_IP_LOCAL:3000
 ```
 
-Em dispositivo fisico, `EXPO_PUBLIC_API_URL` deve usar o IP da maquina na rede local, nao `localhost`.
+Em dispositivo físico, `EXPO_PUBLIC_API_URL` deve usar o IP da máquina na rede local.
+
+**ML Service:**
+
+```bash
+cd ml-service
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+export DATABASE_URL='postgresql://...'
+```
 
 ## Como rodar
 
-API:
+**API:**
 
 ```bash
 cd backend
 make run
 ```
 
-Worker de sincronizacao de partidas:
+**Worker de sincronização de partidas:**
 
 ```bash
 cd backend
 go run ./cmd/matchsync
 ```
 
-App:
+**App mobile:**
 
 ```bash
 cd frontend
@@ -116,62 +114,44 @@ npm install
 npm run start
 ```
 
-## Funcionalidades atuais
+**ML Service (API de inferência):**
 
-- Onboarding, login, cadastro, logout e sessao via Supabase Auth.
-- Criacao de grupos de bolao da Copa do Mundo.
-- Entrada em grupos via codigo de convite.
-- Grupos publicos e privados, com aceite pelo owner quando privado.
-- Tela Home com grupos do usuario, pontuacao geral e pendencias de aprovacao.
-- Tela do grupo com jogos, palpites e ranking.
-- Tela admin do grupo para editar informacoes e aceitar solicitacoes.
-- Pontuacao fixa: 10 pontos para placar exato, 5 para vencedor/empate, 0 para erro.
-- Sincronizacao de placares via football-data.org.
-- WebSocket para atualizar jogos, ranking e notificacoes sem refresh manual.
-
-## Principais rotas da API
-
-```text
-GET /health
-GET /ws
-GET /api/v1/status
-GET /api/v1/me/score
-GET /api/v1/groups
-POST /api/v1/groups
-PUT /api/v1/groups/{groupID}
-POST /api/v1/groups/join
-GET /api/v1/groups/{groupID}/matches
-GET /api/v1/groups/{groupID}/ranking
-PUT /api/v1/groups/{groupID}/matches/{matchID}/prediction
-PUT /api/v1/matches/{matchID}/result
+```bash
+cd ml-service
+uvicorn app.api.main:app --reload
 ```
+
+## Funcionalidades
+
+- Autenticação via Supabase Auth (login, cadastro, logout, sessão)
+- Criação e entrada em grupos de bolão com código de convite
+- Grupos públicos e privados com aprovação pelo owner
+- Palpites por partida com pontuação automática
+- Pontuação: 10 pts para placar exato, 7 pts para vencedor/empate e o número de gols de um dos times correto, 5 pts Mesmo vencedor ou empate (sem acertar nenhum gol exato), 3 pts Errou o vencedor, mas acertou a quantidade de gols de um dos times e 0 pts para erro
+- Ranking em tempo real por grupo via WebSocket
+- Sincronização automática de placares via football-data.org
+- Previsões de resultado e placar geradas por ML
+- Explicações das previsões em linguagem natural via LLM
 
 ## Qualidade
 
-Frontend:
-
-```bash
-cd frontend
-npm run lint
-npm run format:check
-npm run typecheck
-npm run test
-```
-
-Backend:
+**Backend:**
 
 ```bash
 cd backend
-make fmt
-make vet
-make test
+make fmt && make vet && make test
+```
+
+**Frontend:**
+
+```bash
+cd frontend
+npm run lint && npm run typecheck && npm run test
 ```
 
 ## Commits
 
-O projeto usa Husky e Commitlint com Conventional Commits.
-
-Exemplos:
+O projeto usa Conventional Commits com Husky e Commitlint:
 
 ```bash
 feat: add group ranking

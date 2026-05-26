@@ -94,16 +94,22 @@ func ScoreMatchPredictions(ctx context.Context, db Querier, matchID string, requ
 		update predictions
 		set
 			points = case
-				when home_score = $2 and away_score = $3 then 10
-				when sign(home_score - away_score) = sign($2 - $3) then 5
-				else 0
-			end,
-			scored_at = now(),
-			updated_at = now()
-		where match_id = $1
-			and points is distinct from case
-				when home_score = $2 and away_score = $3 then 10
-				when sign(home_score - away_score) = sign($2 - $3) then 5
+				-- 1. Placar exato recebe pontuação máxima.
+				when p.home_score = $2 and p.away_score = $3 then 10
+
+				-- 2. Acertou o vencedor/empate E TAMBÉM o número de gols de um dos times.
+				-- (Exemplo: Jogo 2x1, Palpite 2x0. Ganha 5 pelo vencedor + bônus de gols = 7 pontos)
+				when sign(p.home_score - p.away_score) = sign($2 - $3) 
+					and (p.home_score = $2 or p.away_score = $3) then 7
+
+				-- 3. Mesmo vencedor ou empate (sem acertar nenhum gol exato).
+				when sign(p.home_score - p.away_score) = sign($2 - $3) then 5
+
+				-- 4. Errou o vencedor, mas acertou a quantidade de gols de um dos times.
+				-- (Exemplo: Jogo 2x1, Palpite 0x1. Errou quem venceu, mas cravou os gols do visitante).
+				when p.home_score = $2 or p.away_score = $3 then 3
+
+				-- 5. Resultado incorreto não recebe pontos.
 				else 0
 			end
 	`, matchID, request.HomeScore, request.AwayScore)

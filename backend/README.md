@@ -1,60 +1,82 @@
 # PalpitAI Backend
 
-Backend em Go do PalpitAI. Ele expoe a API HTTP, valida usuarios autenticados pelo Supabase Auth, persiste dados no Supabase/Postgres, emite eventos realtime por WebSocket e sincroniza placares da Copa do Mundo via football-data.org.
+API HTTP/WebSocket em Go do PalpitAI. Autentica usuários via Supabase Auth, persiste dados no PostgreSQL, emite eventos em tempo real por WebSocket e sincroniza placares da Copa do Mundo via football-data.org.
 
-## Requisitos
+## O que é
 
-- Go 1.24+
-- Banco Supabase/Postgres
-- Redis Upstash
-- URL e chave publica do Supabase
-- Token do football-data.org
+O backend é o núcleo do sistema: recebe palpites, calcula pontuação, serve o ranking e coordena atualizações em tempo real para todos os clientes conectados. Um worker separado faz polling na API da football-data.org e propaga mudanças de placar e status de partidas via WebSocket. O backend também integra com o pipeline de ML via banco de dados e gera explicações de previsões com a Gemini API.
 
-## Configuracao
+## Tecnologias
+
+- **Go 1.24+** — linguagem principal
+- **net/http** — servidor HTTP nativo
+- **gorilla/websocket** — conexões WebSocket
+- **jackc/pgx** — driver PostgreSQL
+- **go-redis** — cliente Redis
+- **PostgreSQL** (Supabase) — banco de dados principal
+- **Redis** (Upstash) — cache e pub/sub
+- **Gemini API** — geração de explicações de previsões
+- **football-data.org** — fonte de placares e resultados
+
+## Fontes de dados
+
+| Fonte                  | Uso                                                    |
+| ---------------------- | ------------------------------------------------------ |
+| football-data.org API  | Placares, status e resultados das partidas em tempo real |
+| PostgreSQL (Supabase)  | Grupos, membros, palpites, ranking e previsões de ML   |
+| Redis (Upstash)        | Cache de sessões e estado do hub WebSocket             |
+| Gemini API            | Explicações textuais das previsões geradas pelo ML     |
+
+## Configuração
 
 ```bash
 cp .env.example .env
 ```
 
-Variaveis:
-
-```bash
+```env
 APP_ENV=development
 PORT=3000
 DATABASE_URL=postgresql://postgres:password@db.project.supabase.co:5432/postgres
 REDIS_URL=redis://default:token@host.upstash.io:6379
 SUPABASE_URL=https://project.supabase.co
-SUPABASE_KEY=cole_a_chave_publica_aqui
+SUPABASE_KEY=chave_publica
 FOOTBALL_DATA_API_BASE_URL=https://api.football-data.org/v4
 FOOTBALL_DATA_COMPETITION_CODE=WC
 FOOTBALL_DATA_SEASON=2026
-FOOTBALL_DATA_TOKEN=cole_o_token_aqui
+FOOTBALL_DATA_TOKEN=token
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_REQUEST_DELAY_SECONDS=15
+GEMINI_TIMEOUT_SECONDS=30
 ```
 
-O backend adiciona `sslmode=require` automaticamente quando `DATABASE_URL` nao informa `sslmode`.
-Se a conexao direta do Supabase falhar com erro de IPv6/TLS, use no `.env` a connection string do Supabase Transaction Pooler, normalmente no formato:
+Se a conexão direta ao Supabase falhar por IPv6/TLS, use a URL do Transaction Pooler:
 
-```bash
+```env
 DATABASE_URL=postgresql://postgres.project-ref:password@aws-0-region.pooler.supabase.com:6543/postgres
 ```
 
-O cliente Redis usa TLS automaticamente para conectar no Upstash via `REDIS_URL`.
-
 ## Como rodar
 
-API HTTP/WebSocket:
+**API HTTP/WebSocket:**
 
 ```bash
 make run
 ```
 
-Worker de sincronizacao de jogos:
+**Worker de sincronização de partidas:**
 
 ```bash
 go run ./cmd/matchsync
 ```
 
-Seed inicial:
+**Migrations:**
+
+```bash
+go run ./cmd/migrate
+```
+
+**Seed inicial:**
 
 ```bash
 make seed
@@ -66,183 +88,103 @@ make seed
 backend/
 ├── cmd/
 │   ├── api/          # entrada da API HTTP/WebSocket
-│   ├── matchsync/    # worker separado para sincronizar partidas
-│   └── seed/         # comando de seed
-├── docs/
-│   └── realtime-match-sync.md
+│   ├── matchsync/    # worker de sincronização de partidas
+│   ├── migrate/      # aplicação de migrations SQL
+│   └── seed/         # carga inicial de dados
 └── internal/
-    ├── apperrors/    # erros de aplicacao
-    ├── config/       # leitura de env/config
+    ├── ai/           # cliente Gemini e geração de explicações
+    ├── apperrors/    # erros de aplicação tipados
+    ├── cache/        # abstração de cache Redis
+    ├── config/       # leitura de variáveis de ambiente
     ├── controller/   # handlers HTTP/WebSocket
-    ├── database/     # conexao, migrations e seed
-    ├── domain/       # regras puras de dominio
-    ├── dto/          # contratos externos/HTTP e mappers
-    ├── matchsync/    # client, scheduler, syncer e publicacao de eventos
-    ├── realtime/     # hub WebSocket e broadcast
-    ├── repositories/ # queries SQL por tabela/contexto
+    ├── database/     # conexão e setup do banco
+    ├── domain/       # regras puras de domínio (pontuação, status)
+    ├── dto/          # contratos HTTP e mappers
+    ├── explanations/ # serviço de explicações de previsões
+    ├── matchsync/    # client, scheduler, syncer e publicação de eventos
+    ├── ml/           # integração com previsões do pipeline ML
+    ├── predictions/  # leitura de previsões salvas pelo ML service
+    ├── realtime/     # hub WebSocket e broadcast por grupo
+    ├── repositories/ # queries SQL por contexto
     ├── route/        # roteamento HTTP
-    ├── usecase/      # casos de uso da aplicacao
+    ├── usecase/      # casos de uso e orquestração de negócio
     └── utils/        # helpers compartilhados
 ```
 
-Separacao principal:
+**Separação de responsabilidades:**
 
-- `controller`: parseia request, chama usecase e escreve response.
-- `usecase`: orquestra regras de negocio e transacoes.
-- `repositories`: concentra SQL e acesso ao banco.
-- `domain`: mantem regras puras, como calculo de pontos e normalizacao de status.
-- `dto`: define payloads HTTP e modelos da API football-data.org.
-- `matchsync`: sincroniza jogos, detecta alteracoes e publica eventos.
-- `realtime`: gerencia conexoes WebSocket e envia eventos para grupos.
+- `controller` — parseia request, chama usecase, escreve response
+- `usecase` — orquestra regras de negócio e transações
+- `repositories` — concentra SQL e acesso ao banco
+- `domain` — mantém regras puras como cálculo de pontos e normalização de status
+- `matchsync` — sincroniza partidas, detecta alterações e publica eventos
+- `realtime` — gerencia conexões WebSocket e envia eventos por grupo
 
 ## Rotas
 
 ```text
-GET /health
-GET /ws
-GET /api/v1/status
-GET /api/v1/me/score
-GET /api/v1/groups
+GET  /health
+GET  /ws
+GET  /api/v1/status
+GET  /api/v1/me/score
+GET  /api/v1/groups
 POST /api/v1/groups
-PUT /api/v1/groups/{groupID}
+PUT  /api/v1/groups/{groupID}
 POST /api/v1/groups/join
-GET /api/v1/groups/{groupID}/matches
-GET /api/v1/groups/{groupID}/ranking
-PUT /api/v1/groups/{groupID}/matches/{matchID}/prediction
-PUT /api/v1/matches/{matchID}/result
+GET  /api/v1/groups/{groupID}/matches
+GET  /api/v1/groups/{groupID}/ranking
+PUT  /api/v1/groups/{groupID}/matches/{matchID}/prediction
+PUT  /api/v1/matches/{matchID}/result
 ```
 
-Todas as rotas de usuario exigem `Authorization: Bearer <access_token>` do Supabase Auth.
+Todas as rotas de usuário exigem `Authorization: Bearer <access_token>` do Supabase Auth.
 
-## Grupos
+## Realtime (WebSocket)
 
-### Criar grupo
-
-`POST /api/v1/groups`
-
-```json
-{
-  "name": "Familia na Copa",
-  "description": "Bolao da familia",
-  "match_scope": "selected",
-  "selected_teams": ["Brasil", "Argentina"],
-  "participant_limit": null,
-  "has_unlimited_participants": true,
-  "is_private": true
-}
 ```
-
-A rota cria o grupo, gera `invite_code` e adiciona o usuario autenticado em `group_members` como `owner`.
-
-### Listar meus grupos
-
-`GET /api/v1/groups`
-
-Retorna os grupos em que o usuario participa, incluindo informacoes usadas pela Home, como pontuacao e pendencias de aprovacao quando o usuario e owner.
-
-### Entrar em grupo
-
-`POST /api/v1/groups/join`
-
-```json
-{
-  "invite_code": "ABCD1234"
-}
+GET /ws?token=<access_token>&group_id=<groupID>
 ```
-
-Se o grupo for publico, o usuario entra como membro ativo. Se o grupo for privado, a entrada fica pendente ate o owner aprovar.
-
-## Jogos, palpites e ranking
-
-`GET /api/v1/groups/{groupID}/matches` retorna os jogos do grupo e o palpite do usuario autenticado quando existir.
-
-`PUT /api/v1/groups/{groupID}/matches/{matchID}/prediction` salva ou edita o palpite antes do inicio do jogo.
-
-`PUT /api/v1/matches/{matchID}/result` registra ou altera um placar manualmente, recalcula pontos e emite eventos realtime quando houver mudanca.
-
-`GET /api/v1/me/score` retorna a pontuacao geral do usuario autenticado.
-
-`GET /api/v1/groups/{groupID}/ranking` retorna posicao, usuario e pontuacao total dos participantes ativos do grupo.
-
-Pontuacao atual:
-
-- Placar exato: 10 pontos
-- Acertou vencedor ou empate: 5 pontos
-- Errou tudo: 0 pontos
-
-## Sincronizacao de partidas
-
-O comando `cmd/matchsync` consome:
-
-```text
-GET https://api.football-data.org/v4/competitions/WC/matches
-```
-
-E usa polling adaptativo:
-
-- Jogos ao vivo: a cada 30s
-- Jogos do dia: a cada 5min
-- Proximos jogos: a cada 1h
-- Limite respeitado: 10 requests/min, com intervalo minimo entre chamadas
-
-O syncer compara resposta externa com o estado atual do banco. Ele atualiza o banco e publica eventos apenas quando existe alteracao real de status, placar, gols ou resultado final.
-
-Mais detalhes: [`docs/realtime-match-sync.md`](docs/realtime-match-sync.md).
-
-## Realtime
-
-`GET /ws?token=<access_token>&group_id=<groupID>` abre uma conexao WebSocket autenticada.
 
 Eventos emitidos:
 
 ```json
-{
-  "type": "match.updated",
-  "group_id": "uuid",
-  "payload": {
-    "match_id": "uuid"
-  }
-}
+{ "type": "match.updated",   "group_id": "uuid", "payload": { "match_id": "uuid" } }
+{ "type": "ranking.updated", "group_id": "uuid", "payload": { "group_id": "uuid" } }
+{ "type": "match.finished",  "group_id": "uuid", "payload": { "message": "Brasil 2x1 Croácia - resultado final lançado" } }
 ```
 
-```json
-{
-  "type": "ranking.updated",
-  "group_id": "uuid",
-  "payload": {
-    "group_id": "uuid"
-  }
-}
-```
+## Sincronização de partidas
 
-```json
-{
-  "type": "match.finished",
-  "group_id": "uuid",
-  "payload": {
-    "message": "Brasil 2x1 Croacia - resultado final lancado"
-  }
-}
-```
+O worker `cmd/matchsync` faz polling em `GET https://api.football-data.org/v4/competitions/WC/matches` com frequência adaptativa:
 
-O frontend usa esses eventos para invalidar dados de jogos/ranking e mostrar notificacoes temporarias.
+| Situação              | Intervalo |
+| --------------------- | --------- |
+| Jogos ao vivo         | 30s        |
+| Jogos do dia          | 5min       |
+| Próximos jogos        | 1h         |
 
-## Banco
+Atualiza o banco e publica eventos WebSocket somente quando há mudança real de status, placar ou resultado.
 
-As migrations sao aplicadas na inicializacao da API. As principais tabelas sao:
+## Banco de dados
 
-- `groups`
-- `group_members`
-- `world_cup_matches`
-- `predictions`
-- `match_events`
+O schema é gerenciado por dois mecanismos complementares:
 
-Regras importantes:
+- **`cmd/migrate`** — aplica os arquivos `.sql` em `migrations/` em ordem lexicográfica. Deve ser executado antes de iniciar a API em um banco novo.
+- **`database/migrations.go`** — executado automaticamente no startup da API via `database.Migrate()`. Cria as tabelas core da app com `IF NOT EXISTS`, servindo como fallback idempotente.
 
-- Owner tambem e membro do grupo.
-- Grupo privado cria solicitacao pendente antes de virar membro ativo.
-- Palpite so pode ser editado antes do inicio da partida.
-- Ranking e derivado dos palpites pontuados por grupo.
+Em um banco novo, rode `cmd/migrate` primeiro — ele cobre todas as tabelas.
+
+Arquivos de migration:
+
+| Arquivo | Tabelas |
+| --- | --- |
+| `202605230001_create_core_app_tables` | `groups`, `group_members`, `world_cup_matches`, `match_events`, `predictions` |
+| `202605240001_create_data_pipeline_tables` | `teams`, `team_aliases` |
+| `202605250001_create_metrics_tables` | `team_metrics`, `team_metric_snapshots`, `match_features` |
+| `202605260001_create_ml_prediction_tables` | `ml_models`, `prediction_runs`, `historical_matches`, `match_predictions` |
+| `202605260002_create_goal_prediction_tables` | `goal_models`, `match_goal_predictions`, `match_score_probabilities` |
+| `202605260003_add_score_result_calibration` | Colunas de calibração em `match_goal_predictions` |
+| `202605260004_create_prediction_explanations` | `prediction_explanations` |
 
 ## Qualidade
 
