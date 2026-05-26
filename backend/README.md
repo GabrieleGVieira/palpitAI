@@ -32,6 +32,12 @@ FOOTBALL_DATA_TOKEN=cole_o_token_aqui
 ```
 
 O backend adiciona `sslmode=require` automaticamente quando `DATABASE_URL` nao informa `sslmode`.
+Se a conexao direta do Supabase falhar com erro de IPv6/TLS, use no `.env` a connection string do Supabase Transaction Pooler, normalmente no formato:
+
+```bash
+DATABASE_URL=postgresql://postgres.project-ref:password@aws-0-region.pooler.supabase.com:6543/postgres
+```
+
 O cliente Redis usa TLS automaticamente para conectar no Upstash via `REDIS_URL`.
 
 ## Como rodar

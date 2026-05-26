@@ -25,84 +25,83 @@ func Migrate(ctx context.Context, db *pgxpool.Pool) error {
 			created_at timestamp default now()
 		);
 
-		create table if not exists historical_matches (
+		create table if not exists team_metrics (
 			id uuid primary key default gen_random_uuid(),
-			match_date date not null,
-			home_team_id uuid not null references teams(id),
-			away_team_id uuid not null references teams(id),
-			home_score int not null,
-			away_score int not null,
-			tournament text,
-			city text,
-			country text,
-			neutral boolean default false,
-			source text not null default 'international-results',
+			team_id uuid not null references teams(id),
+			metric_date date not null,
+			elo_score numeric null,
+			attack_score numeric null,
+			defense_score numeric null,
+			recent_form_score numeric null,
+			world_cup_history_score numeric null,
+			knockout_score numeric null,
+			group_stage_score numeric null,
+			avg_goals_scored numeric null,
+			avg_goals_conceded numeric null,
+			win_rate numeric null,
+			draw_rate numeric null,
+			loss_rate numeric null,
+			matches_played int default 0,
+			source text not null default 'metrics-engine-v1',
 			created_at timestamp default now(),
 			updated_at timestamp default now()
 		);
 
-		create unique index if not exists historical_matches_unique_idx
-			on historical_matches (
+		create unique index if not exists team_metrics_team_date_idx
+			on team_metrics (team_id, metric_date);
+
+		create table if not exists team_metric_snapshots (
+			id uuid primary key default gen_random_uuid(),
+			team_id uuid not null references teams(id),
+			snapshot_type text not null,
+			payload_json jsonb not null,
+			calculated_at timestamp default now()
+		);
+
+		create index if not exists team_metric_snapshots_team_type_calculated_idx
+			on team_metric_snapshots (team_id, snapshot_type, calculated_at desc);
+
+		create table if not exists match_features (
+			id uuid primary key default gen_random_uuid(),
+			match_id uuid null,
+			match_date date not null,
+			home_team_id uuid not null references teams(id),
+			away_team_id uuid not null references teams(id),
+			tournament text null,
+			stage text null,
+			home_elo_score numeric null,
+			away_elo_score numeric null,
+			elo_diff numeric null,
+			home_attack_score numeric null,
+			away_attack_score numeric null,
+			home_defense_score numeric null,
+			away_defense_score numeric null,
+			home_recent_form_score numeric null,
+			away_recent_form_score numeric null,
+			home_fifa_rank int null,
+			away_fifa_rank int null,
+			fifa_rank_diff int null,
+			home_avg_goals_scored numeric null,
+			away_avg_goals_scored numeric null,
+			home_avg_goals_conceded numeric null,
+			away_avg_goals_conceded numeric null,
+			home_world_cup_history_score numeric null,
+			away_world_cup_history_score numeric null,
+			neutral boolean default false,
+			created_at timestamp default now(),
+			updated_at timestamp default now()
+		);
+
+		create unique index if not exists match_features_match_unique_idx
+			on match_features (
 				match_date,
 				home_team_id,
 				away_team_id,
-				coalesce(tournament, '')
+				tournament
 			);
 
-		create table if not exists historical_goalscorers (
-			id uuid primary key default gen_random_uuid(),
-			match_id uuid references historical_matches(id),
-			match_date date not null,
-			team_id uuid references teams(id),
-			scorer text,
-			minute int null,
-			own_goal boolean default false,
-			penalty boolean default false,
-			source text not null default 'international-results',
-			created_at timestamp default now()
-		);
-
-		create table if not exists fifa_rankings (
-			id uuid primary key default gen_random_uuid(),
-			team_id uuid not null references teams(id),
-			ranking_date date not null,
-			rank int not null,
-			total_points numeric null,
-			previous_points numeric null,
-			rank_change int null,
-			confederation text null,
-			source text not null default 'fifa-ranking-historical',
-			created_at timestamp default now()
-		);
-
-		create unique index if not exists fifa_rankings_unique_idx
-			on fifa_rankings (team_id, ranking_date);
-
-		create table if not exists data_import_logs (
-			id uuid primary key default gen_random_uuid(),
-			import_type text not null,
-			file_path text,
-			status text not null,
-			processed_count int default 0,
-			inserted_count int default 0,
-			skipped_count int default 0,
-			error_count int default 0,
-			error_message text null,
-			started_at timestamp default now(),
-			finished_at timestamp null
-		);
-
-		create table if not exists external_api_snapshots (
-			id uuid primary key default gen_random_uuid(),
-			provider text not null,
-			endpoint text not null,
-			payload_json jsonb not null,
-			fetched_at timestamp default now(),
-			expires_at timestamp not null
-		);
-
-		create index if not exists external_api_snapshots_lookup_idx
-			on external_api_snapshots (provider, endpoint, expires_at);
+		create index if not exists match_features_match_date_idx
+			on match_features (match_date);
 
 		create table if not exists groups (
 			id uuid primary key default gen_random_uuid(),
