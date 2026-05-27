@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -65,6 +66,25 @@ func main() {
 
 	// 9. Inicia o loop de sincronizacao e bloqueia ate o contexto ser cancelado.
 	logger.Info("match sync worker started", "provider", "football-data.org", "competition", cfg.FootballDataCompetitionCode)
-	syncer.Run(ctx)
+
+	go syncer.Run(ctx)
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+
+	logger.Info("match sync health server started", "port", port)
+
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		logger.Error("health server failed", "error", err)
+		os.Exit(1)
+	}
+
 	logger.Info("match sync worker stopped")
 }

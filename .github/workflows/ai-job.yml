@@ -1,0 +1,70 @@
+name: Daily Predictions and AI Explanations
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  daily-ai:
+    runs-on: ubuntu-latest
+    environment: prod
+
+    env:
+      APP_ENV: prod
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      REDIS_URL: ${{ secrets.REDIS_URL }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      GEMINI_TIMEOUT_SECONDS: 30
+      GEMINI_REQUEST_DELAY_SECONDS: 15
+      GEMINI_RATE_LIMIT_COOLDOWN_SECONDS: 1800
+      GEMINI_RATE_LIMIT_MAX_WAITS: 1
+
+      AI_EXPLANATION_BATCH_SIZE: 2
+      AI_EXPLANATION_MIN_BATCH_SIZE: 1
+      AI_EXPLANATION_RETRY_MISSING: true
+      AI_EXPLANATION_MAX_MISSING_RETRIES: 2
+      AI_EXPLANATION_SEED_DAYS: 90
+      AI_EXPLANATION_REFRESH_DAYS: 7
+      AI_EXPLANATION_MAX_AGE_HOURS: 24
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check DATABASE_URL exists
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL is empty"
+            exit 1
+          fi
+          echo "DATABASE_URL is set"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ML dependencies
+        working-directory: ml-service
+        run: pip install -r requirements.txt
+
+      - name: Run ML predictions
+        working-directory: ml-service
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python app/scripts/run_daily_metrics_job.py --feature-to-date=2026-07-31
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Download Go dependencies
+        working-directory: backend
+        run: go mod download
+
+      - name: Generate AI explanations
+        working-directory: backend
+        run: |
+          go run ./cmd/generate-ai-explanations

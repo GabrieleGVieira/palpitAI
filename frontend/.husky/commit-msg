@@ -8,4 +8,4 @@
 
 # cd "$repo_root/frontend"
 
-# npm run commitlint -- --edit "$commit_msg_file"
+# npm run lint:commit -- --edit "$commit_msg_file"

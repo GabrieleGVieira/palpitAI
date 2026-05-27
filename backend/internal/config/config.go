@@ -39,7 +39,7 @@ func Load() Config {
 		DatabaseURL:                    getEnv("DATABASE_URL", ""),
 		Env:                            getEnv("APP_ENV", "development"),
 		FootballDataAPIBaseURL:         getEnv("FOOTBALL_DATA_API_BASE_URL", "https://api.football-data.org/v4"),
-		FootballDataCompetitionCode:    getEnv("FOOTBALL_DATA_COMPETITION_CODE", "BSA"),
+		FootballDataCompetitionCode:    getEnv("FOOTBALL_DATA_COMPETITION_CODE", "WC"),
 		FootballDataSeason:             getEnv("FOOTBALL_DATA_SEASON", ""),
 		FootballDataToken:              getEnv("FOOTBALL_DATA_TOKEN", ""),
 		GeminiAPIKey:                   getEnv("GEMINI_API_KEY", ""),

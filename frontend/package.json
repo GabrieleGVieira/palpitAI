@@ -15,15 +15,17 @@
     "format:check": "prettier . --check",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "commitlint": "commitlint",
+    "lint:commit": "commitlint",
     "prepare": "cd .. && husky frontend/.husky"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
     "@supabase/supabase-js": "^2.105.4",
     "@tanstack/react-query": "^5.100.10",
+    "eas-cli": "^19.1.0",
     "expo": "~54.0.33",
     "expo-status-bar": "~3.0.9",
+    "expo-updates": "~29.0.17",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -42,6 +44,9 @@
     "prettier": "^3.8.3",
     "typescript": "~5.9.2",
     "vitest": "^4.1.6"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   },
   "private": true
 }
