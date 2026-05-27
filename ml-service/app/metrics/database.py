@@ -22,7 +22,7 @@ class Database:
 
     @contextmanager
     def connect(self) -> Iterator[psycopg.Connection]:
-        with psycopg.connect(self.database_url, row_factory=dict_row) as conn:
+        with psycopg.connect(self.database_url, row_factory=dict_row, prepare_threshold=None) as conn:
             yield conn
 
     def load_teams(self) -> list[Team]:

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -19,6 +20,10 @@ func NewPostgresPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, er
 	if err != nil {
 		return nil, err
 	}
+
+	// Use the simple protocol to avoid server-side prepared statement conflicts
+	// with connection reuse and pooled statements.
+	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
 	cfg.MaxConns = 5
 	cfg.MinConns = 1
