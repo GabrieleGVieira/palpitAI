@@ -1,3 +1,5 @@
+import * as Clipboard from 'expo-clipboard';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Group } from '../../services/groups';
 import { LoadingIndicator } from '../../../../shared/components/LoadingIndicator';
@@ -17,6 +19,16 @@ export function GroupListSection({
   onRefresh,
   onOpenGroup,
 }: GroupListSectionProps) {
+  const [copiedGroupID, setCopiedGroupID] = useState<string | null>(null);
+
+  async function copyInviteCode(group: Group) {
+    await Clipboard.setStringAsync(group.invite_code);
+    setCopiedGroupID(group.id);
+    setTimeout(() => {
+      setCopiedGroupID((currentGroupID) => (currentGroupID === group.id ? null : currentGroupID));
+    }, 1800);
+  }
+
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
@@ -52,10 +64,16 @@ export function GroupListSection({
                 {group.member_count === 1 ? '' : 's'}
               </Text>
             </View>
-            <View style={styles.inviteBadge}>
+            <Pressable
+              onLongPress={() => {
+                void copyInviteCode(group);
+              }}
+              style={styles.inviteBadge}>
               <Text style={styles.inviteBadgeLabel}>Convite</Text>
-              <Text style={styles.inviteBadgeCode}>{group.invite_code}</Text>
-            </View>
+              <Text style={styles.inviteBadgeCode}>
+                {copiedGroupID === group.id ? 'Copiado' : group.invite_code}
+              </Text>
+            </Pressable>
           </View>
 
           {group.description ? (

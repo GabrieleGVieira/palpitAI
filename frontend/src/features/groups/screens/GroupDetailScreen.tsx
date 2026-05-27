@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { GroupDetailHeader } from '../components/group-details/GroupDetailHeader';
@@ -13,16 +13,24 @@ import { LoadingIndicator } from '../../../shared/components/LoadingIndicator';
 type GroupDetailScreenProps = {
   group: Group;
   onBack: () => void;
+  onGroupLeft: () => void;
   onOpenAdmin: () => void;
 };
 
-export function GroupDetailScreen({ group, onBack, onOpenAdmin }: GroupDetailScreenProps) {
+export function GroupDetailScreen({
+  group,
+  onBack,
+  onGroupLeft,
+  onOpenAdmin,
+}: GroupDetailScreenProps) {
   const {
     activeTab,
     drafts,
     error,
     isLoading,
     isLoadingRanking,
+    isLeavingGroup,
+    leaveGroup,
     matches,
     notificationMessage,
     ranking,
@@ -32,7 +40,18 @@ export function GroupDetailScreen({ group, onBack, onOpenAdmin }: GroupDetailScr
     savingMatchID,
     successMessage,
     updateDraft,
-  } = useGroupDetailScreen(group);
+  } = useGroupDetailScreen(group, onGroupLeft);
+
+  function confirmLeaveGroup() {
+    Alert.alert(
+      'Sair do grupo',
+      'Você tem certeza que deseja sair deste grupo? Você não verá mais os jogos e ranking dele.',
+      [
+        { style: 'cancel', text: 'Cancelar' },
+        { onPress: leaveGroup, style: 'destructive', text: 'Sair' },
+      ],
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -45,9 +64,11 @@ export function GroupDetailScreen({ group, onBack, onOpenAdmin }: GroupDetailScr
           activeTab={activeTab}
           error={error}
           group={group}
+          isLeavingGroup={isLeavingGroup}
           notificationMessage={notificationMessage}
           onBack={onBack}
           onChangeTab={setActiveTab}
+          onLeaveGroup={confirmLeaveGroup}
           onOpenAdmin={onOpenAdmin}
           successMessage={successMessage}
         />

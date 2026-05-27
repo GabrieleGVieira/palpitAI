@@ -3,10 +3,16 @@ package repositories
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/gabrielevieira/palpitai/backend/internal/dto"
 	"github.com/jackc/pgx/v5"
 )
+
+type GroupMembership struct {
+	Role   string
+	Status string
+}
 
 func GroupMemberStatus(ctx context.Context, db Querier, groupID string, userID string) (string, error) {
 	var status string
@@ -18,6 +24,18 @@ func GroupMemberStatus(ctx context.Context, db Querier, groupID string, userID s
 	}
 
 	return status, err
+}
+
+func GroupMembershipByUser(ctx context.Context, db Querier, groupID string, userID string) (GroupMembership, error) {
+	var membership GroupMembership
+	err := db.QueryRow(ctx, `
+		select role, status from group_members where group_id = $1 and user_id = $2
+	`, groupID, userID).Scan(&membership.Role, &membership.Status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return GroupMembership{}, ErrNotFound
+	}
+
+	return membership, err
 }
 
 func InsertGroupMember(ctx context.Context, db Querier, groupID string, userID string, status string, displayName string) error {
@@ -61,6 +79,43 @@ func ListPendingJoinRequests(ctx context.Context, db Querier, ownerID string, gr
 	return requests, rows.Err()
 }
 
+func ListActiveGroupMembers(ctx context.Context, db Querier, ownerID string, groupID string) ([]dto.GroupMemberResponse, error) {
+	rows, err := db.Query(ctx, `
+		select
+			gm.user_id,
+			gm.display_name,
+			gm.role,
+			gm.joined_at
+		from group_members gm
+		join groups g on g.id = gm.group_id
+		where gm.group_id = $1
+			and g.owner_id = $2
+			and gm.status = 'active'
+		order by
+			case when gm.role = 'owner' then 0 else 1 end,
+			gm.display_name asc,
+			gm.joined_at asc
+	`, groupID, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	members := []dto.GroupMemberResponse{}
+	for rows.Next() {
+		var member dto.GroupMemberResponse
+		var joinedAt time.Time
+		if err := rows.Scan(&member.UserID, &member.DisplayName, &member.Role, &joinedAt); err != nil {
+			return nil, err
+		}
+
+		member.JoinedAt = joinedAt
+		members = append(members, member)
+	}
+
+	return members, rows.Err()
+}
+
 func ApprovePendingMember(ctx context.Context, db Querier, groupID string, requesterID string) error {
 	var approvedGroupID string
 	err := db.QueryRow(ctx, `
@@ -69,6 +124,43 @@ func ApprovePendingMember(ctx context.Context, db Querier, groupID string, reque
 		where group_id = $1 and user_id = $2 and status = 'pending'
 		returning group_id
 	`, groupID, requesterID).Scan(&approvedGroupID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+
+	return err
+}
+
+func DeleteOwnGroupMembership(ctx context.Context, db Querier, groupID string, userID string) error {
+	var deletedGroupID string
+	err := db.QueryRow(ctx, `
+		delete from group_members
+		where group_id = $1
+			and user_id = $2
+			and role <> 'owner'
+			and status = 'active'
+		returning group_id
+	`, groupID, userID).Scan(&deletedGroupID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+
+	return err
+}
+
+func DeleteGroupMemberByOwner(ctx context.Context, db Querier, ownerID string, groupID string, memberID string) error {
+	var deletedGroupID string
+	err := db.QueryRow(ctx, `
+		delete from group_members gm
+		using groups g
+		where g.id = gm.group_id
+			and g.owner_id = $1
+			and gm.group_id = $2
+			and gm.user_id = $3
+			and gm.role <> 'owner'
+			and gm.status = 'active'
+		returning gm.group_id
+	`, ownerID, groupID, memberID).Scan(&deletedGroupID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}

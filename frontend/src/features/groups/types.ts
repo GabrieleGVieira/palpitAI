@@ -39,6 +39,13 @@ export type JoinRequest = {
   display_name: string;
 };
 
+export type GroupMember = {
+  display_name: string;
+  joined_at: string;
+  role: string;
+  user_id: string;
+};
+
 export type Prediction = {
   away_score: number;
   home_score: number;
@@ -94,6 +101,10 @@ export type ListGroupMatchesResponse = {
 
 export type ListJoinRequestsResponse = {
   requests: JoinRequest[];
+};
+
+export type ListGroupMembersResponse = {
+  members: GroupMember[];
 };
 
 export type GroupRankingResponse = {

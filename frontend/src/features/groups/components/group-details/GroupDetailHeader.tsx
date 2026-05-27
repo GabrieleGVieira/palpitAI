@@ -9,9 +9,11 @@ type Props = {
   activeTab: GroupDetailTab;
   error: string | null;
   group: Group;
+  isLeavingGroup: boolean;
   notificationMessage: string | null;
   onBack: () => void;
   onChangeTab: (tab: GroupDetailTab) => void;
+  onLeaveGroup: () => void;
   onOpenAdmin: () => void;
   successMessage: string | null;
 };
@@ -20,9 +22,11 @@ export function GroupDetailHeader({
   activeTab,
   error,
   group,
+  isLeavingGroup,
   notificationMessage,
   onBack,
   onChangeTab,
+  onLeaveGroup,
   onOpenAdmin,
   successMessage,
 }: Props) {
@@ -35,7 +39,16 @@ export function GroupDetailHeader({
           <Pressable onPress={onOpenAdmin} style={styles.adminButton}>
             <Text style={styles.adminButtonText}>Admin</Text>
           </Pressable>
-        ) : null}
+        ) : (
+          <Pressable
+            disabled={isLeavingGroup}
+            onPress={onLeaveGroup}
+            style={[styles.leaveButton, isLeavingGroup && styles.buttonDisabled]}>
+            <Text style={styles.leaveButtonText}>
+              {isLeavingGroup ? 'Saindo...' : 'Sair'}
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       <View style={styles.titleBlock}>
@@ -111,6 +124,22 @@ const styles = StyleSheet.create({
     color: '#1f7a4a',
     fontSize: 14,
     fontWeight: '800',
+  },
+  leaveButton: {
+    backgroundColor: '#ffffff',
+    borderColor: '#a03222',
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  leaveButtonText: {
+    color: '#a03222',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   titleBlock: {
     paddingTop: 12,

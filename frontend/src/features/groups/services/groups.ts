@@ -9,6 +9,7 @@ import type {
   GroupRankingResponse,
   JoinGroupResponse,
   ListGroupMatchesResponse,
+  ListGroupMembersResponse,
   ListGroupsResponse,
   ListJoinRequestsResponse,
   Prediction,
@@ -21,6 +22,7 @@ export type {
   CreateGroupPayload,
   Group,
   GroupMatch,
+  GroupMember,
   JoinGroupResponse,
   JoinRequest,
   Prediction,
@@ -70,6 +72,14 @@ export async function listJoinRequests(groupID: string) {
   return data.requests;
 }
 
+export async function listGroupMembers(groupID: string) {
+  const data = await apiClient<ListGroupMembersResponse>(`/api/v1/groups/${groupID}/members`, {
+    fallbackError: 'Não foi possivel carregar os participantes.',
+  });
+
+  return data.members;
+}
+
 export async function approveJoinRequest(groupID: string, userID: string) {
   await apiClient<Record<string, string>>(
     `/api/v1/groups/${groupID}/join-requests/${userID}/approve`,
@@ -78,6 +88,20 @@ export async function approveJoinRequest(groupID: string, userID: string) {
       method: 'POST',
     },
   );
+}
+
+export async function removeGroupMember(groupID: string, userID: string) {
+  await apiClient<Record<string, string>>(`/api/v1/groups/${groupID}/members/${userID}`, {
+    fallbackError: 'Não foi possivel remover o participante.',
+    method: 'DELETE',
+  });
+}
+
+export async function leaveGroup(groupID: string) {
+  await apiClient<Record<string, string>>(`/api/v1/groups/${groupID}/membership`, {
+    fallbackError: 'Não foi possivel sair do grupo.',
+    method: 'DELETE',
+  });
 }
 
 export async function updateGroup(groupID: string, payload: UpdateGroupPayload) {

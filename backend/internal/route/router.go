@@ -37,6 +37,9 @@ func NewRouter(cfg config.Config, db usecase.Datastore, services ...Services) ht
 	mux.HandleFunc("POST /api/v1/groups/join", controller.JoinGroupHandler(cfg, groups))
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/join-requests", controller.ListJoinRequestsHandler(cfg, groups))
 	mux.HandleFunc("POST /api/v1/groups/{groupID}/join-requests/{userID}/approve", controller.ApproveJoinRequestHandler(cfg, groups))
+	mux.HandleFunc("GET /api/v1/groups/{groupID}/members", controller.ListGroupMembersHandler(cfg, groups))
+	mux.HandleFunc("DELETE /api/v1/groups/{groupID}/members/{userID}", controller.RemoveGroupMemberHandler(cfg, groups))
+	mux.HandleFunc("DELETE /api/v1/groups/{groupID}/membership", controller.LeaveGroupHandler(cfg, groups))
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/matches", controller.ListGroupMatchesHandler(cfg, predictions))
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/ranking", controller.GroupRankingHandler(cfg, predictions))
 	mux.HandleFunc("PUT /api/v1/groups/{groupID}/matches/{matchID}/prediction", controller.SavePredictionHandler(cfg, predictions))
@@ -48,7 +51,7 @@ func NewRouter(cfg config.Config, db usecase.Datastore, services ...Services) ht
 func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 
 		if r.Method == http.MethodOptions {

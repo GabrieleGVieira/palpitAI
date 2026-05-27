@@ -14,8 +14,9 @@ import (
 const inviteCodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 var (
-	ErrGroupFull     = apperrors.NewConflict("group is full")
-	ErrGroupNotFound = apperrors.NewNotFound("group not found")
+	ErrGroupFull          = apperrors.NewConflict("group is full")
+	ErrGroupNotFound      = apperrors.NewNotFound("group not found")
+	ErrGroupOwnerRequired = apperrors.NewForbidden("group owner required")
 )
 
 type GroupUsecase struct {
@@ -46,8 +47,20 @@ func (uc GroupUsecase) ListJoinRequests(ctx context.Context, ownerID string, gro
 	return ListJoinRequests(ctx, uc.db, ownerID, groupID)
 }
 
+func (uc GroupUsecase) ListMembers(ctx context.Context, ownerID string, groupID string) ([]dto.GroupMemberResponse, error) {
+	return ListMembers(ctx, uc.db, ownerID, groupID)
+}
+
 func (uc GroupUsecase) ApproveJoinRequest(ctx context.Context, ownerID string, groupID string, requesterID string) error {
 	return ApproveJoinRequest(ctx, uc.db, ownerID, groupID, requesterID)
+}
+
+func (uc GroupUsecase) LeaveGroup(ctx context.Context, userID string, groupID string) error {
+	return LeaveGroup(ctx, uc.db, userID, groupID)
+}
+
+func (uc GroupUsecase) RemoveMember(ctx context.Context, ownerID string, groupID string, memberID string) error {
+	return RemoveMember(ctx, uc.db, ownerID, groupID, memberID)
 }
 
 func ListGroups(ctx context.Context, db Datastore, userID string) ([]dto.GroupListItemResponse, error) {
@@ -101,6 +114,10 @@ func ListJoinRequests(ctx context.Context, db Datastore, ownerID string, groupID
 	return repositories.ListPendingJoinRequests(ctx, db, ownerID, groupID)
 }
 
+func ListMembers(ctx context.Context, db Datastore, ownerID string, groupID string) ([]dto.GroupMemberResponse, error) {
+	return repositories.ListActiveGroupMembers(ctx, db, ownerID, groupID)
+}
+
 func ApproveJoinRequest(ctx context.Context, db Datastore, ownerID string, groupID string, requesterID string) error {
 	return withTx(ctx, db, func(tx repositories.Querier) error {
 		capacity, err := repositories.OwnerGroupCapacity(ctx, tx, ownerID, groupID)
@@ -122,6 +139,38 @@ func ApproveJoinRequest(ctx context.Context, db Datastore, ownerID string, group
 
 		return err
 	})
+}
+
+func LeaveGroup(ctx context.Context, db Datastore, userID string, groupID string) error {
+	membership, err := repositories.GroupMembershipByUser(ctx, db, groupID, userID)
+	if errors.Is(err, repositories.ErrNotFound) {
+		return ErrGroupNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if membership.Role == "owner" {
+		return ErrGroupOwnerRequired
+	}
+	if membership.Status != "active" {
+		return ErrGroupNotFound
+	}
+
+	err = repositories.DeleteOwnGroupMembership(ctx, db, groupID, userID)
+	if errors.Is(err, repositories.ErrNotFound) {
+		return ErrGroupNotFound
+	}
+
+	return err
+}
+
+func RemoveMember(ctx context.Context, db Datastore, ownerID string, groupID string, memberID string) error {
+	err := repositories.DeleteGroupMemberByOwner(ctx, db, ownerID, groupID, memberID)
+	if errors.Is(err, repositories.ErrNotFound) {
+		return ErrGroupNotFound
+	}
+
+	return err
 }
 
 func NormalizeCreateGroupRequest(request dto.CreateGroupRequest) (dto.CreateGroupRequest, error) {

@@ -3,13 +3,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   approveJoinRequest,
+  listGroupMembers,
   listJoinRequests,
+  removeGroupMember,
   updateGroup,
   type Group,
+  type GroupMember,
   type JoinRequest,
 } from '../services/groups';
 
 const emptyJoinRequests: JoinRequest[] = [];
+const emptyMembers: GroupMember[] = [];
 
 export function useGroupAdminScreen(
   group: Group,
@@ -26,6 +30,7 @@ export function useGroupAdminScreen(
     group.participant_limit ? String(group.participant_limit) : '20',
   );
   const [approvingUserID, setApprovingUserID] = useState<string | null>(null);
+  const [removingUserID, setRemovingUserID] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -33,7 +38,12 @@ export function useGroupAdminScreen(
     queryFn: () => listJoinRequests(group.id),
     queryKey: ['groups', group.id, 'join-requests'],
   });
+  const membersQuery = useQuery({
+    queryFn: () => listGroupMembers(group.id),
+    queryKey: ['groups', group.id, 'members'],
+  });
   const refetchRequests = requestsQuery.refetch;
+  const refetchMembers = membersQuery.refetch;
   const updateMutation = useMutation({
     mutationFn: (payload: Parameters<typeof updateGroup>[1]) => updateGroup(group.id, payload),
     onSuccess: async () => {
@@ -47,6 +57,14 @@ export function useGroupAdminScreen(
       await queryClient.invalidateQueries({ queryKey: ['groups', group.id, 'join-requests'] });
     },
   });
+  const removeMemberMutation = useMutation({
+    mutationFn: (userID: string) => removeGroupMember(group.id, userID),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['groups'] });
+      await queryClient.invalidateQueries({ queryKey: ['groups', group.id, 'members'] });
+      await queryClient.invalidateQueries({ queryKey: ['groups', group.id, 'ranking'] });
+    },
+  });
 
   const loadRequests = useCallback(async () => {
     setError(null);
@@ -56,6 +74,15 @@ export function useGroupAdminScreen(
       setError(nextError);
     }
   }, [refetchRequests]);
+
+  const loadMembers = useCallback(async () => {
+    setError(null);
+    const result = await refetchMembers();
+    const nextError = queryErrorMessage(result.error, 'Não foi possível carregar participantes.');
+    if (nextError) {
+      setError(nextError);
+    }
+  }, [refetchMembers]);
 
   async function handleSaveGroup() {
     setError(null);
@@ -100,11 +127,31 @@ export function useGroupAdminScreen(
         member_count: group.member_count + 1,
         pending_requests_count: Math.max(group.pending_requests_count - 1, 0),
       });
+      await queryClient.invalidateQueries({ queryKey: ['groups', group.id, 'members'] });
       setSuccessMessage('Solicitação aprovada.');
     } catch (approveError) {
       setError(queryErrorMessage(approveError, 'Não foi possível aprovar a solicitação.'));
     } finally {
       setApprovingUserID(null);
+    }
+  }
+
+  async function handleRemoveMember(member: GroupMember) {
+    setError(null);
+    setSuccessMessage(null);
+    setRemovingUserID(member.user_id);
+
+    try {
+      await removeMemberMutation.mutateAsync(member.user_id);
+      onGroupUpdated({
+        ...group,
+        member_count: Math.max(group.member_count - 1, 1),
+      });
+      setSuccessMessage('Participante removido.');
+    } catch (removeError) {
+      setError(queryErrorMessage(removeError, 'Não foi possível remover o participante.'));
+    } finally {
+      setRemovingUserID(null);
     }
   }
 
@@ -120,11 +167,15 @@ export function useGroupAdminScreen(
           ),
     hasUnlimitedParticipants,
     isLoadingRequests: requestsQuery.isLoading,
+    isLoadingMembers: membersQuery.isLoading,
     isPrivate,
     isSaving: updateMutation.isPending,
     loadRequests,
+    loadMembers,
+    members: Array.isArray(membersQuery.data) ? membersQuery.data : emptyMembers,
     name,
     participantLimit,
+    removingUserID,
     requests: Array.isArray(requestsQuery.data) ? requestsQuery.data : emptyJoinRequests,
     setDescription,
     setHasUnlimitedParticipants,
@@ -134,6 +185,7 @@ export function useGroupAdminScreen(
     setSuccessMessage,
     successMessage,
     handleApprove,
+    handleRemoveMember,
     handleSaveGroup,
   };
 }

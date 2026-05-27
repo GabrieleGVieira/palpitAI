@@ -96,6 +96,10 @@ function renderAppFlow({
       <GroupDetailScreen
         group={selectedGroup}
         onBack={() => setAppScreen('home')}
+        onGroupLeft={() => {
+          setSelectedGroup(null);
+          setAppScreen('home');
+        }}
         onOpenAdmin={() => setAppScreen('group-admin')}
       />
     );

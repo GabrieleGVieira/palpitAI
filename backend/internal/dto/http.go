@@ -73,6 +73,13 @@ type JoinRequestResponse struct {
 	DisplayName string    `json:"display_name"`
 }
 
+type GroupMemberResponse struct {
+	DisplayName string    `json:"display_name"`
+	JoinedAt    time.Time `json:"joined_at"`
+	Role        string    `json:"role"`
+	UserID      string    `json:"user_id"`
+}
+
 type PredictionRequest struct {
 	HomeScore int `json:"home_score"`
 	AwayScore int `json:"away_score"`

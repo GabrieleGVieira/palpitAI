@@ -152,6 +152,26 @@ func ListJoinRequestsHandler(cfg config.Config, groups usecase.GroupUsecase) htt
 	}
 }
 
+func ListGroupMembersHandler(cfg config.Config, groups usecase.GroupUsecase) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := userIDFromRequest(r, cfg)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "Informe um token de autenticacao valido.")
+			return
+		}
+
+		members, err := groups.ListMembers(r.Context(), userID, r.PathValue("groupID"))
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Não foi possivel listar os participantes.")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string][]dto.GroupMemberResponse{
+			"members": members,
+		})
+	}
+}
+
 func ApproveJoinRequestHandler(cfg config.Config, groups usecase.GroupUsecase) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ownerID, err := userIDFromRequest(r, cfg)
@@ -174,6 +194,56 @@ func ApproveJoinRequestHandler(cfg config.Config, groups usecase.GroupUsecase) h
 
 		writeJSON(w, http.StatusOK, map[string]string{
 			"status": "approved",
+		})
+	}
+}
+
+func LeaveGroupHandler(cfg config.Config, groups usecase.GroupUsecase) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := userIDFromRequest(r, cfg)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "Informe um token de autenticacao valido.")
+			return
+		}
+
+		if err := groups.LeaveGroup(r.Context(), userID, r.PathValue("groupID")); err != nil {
+			switch {
+			case apperrors.IsForbidden(err):
+				writeError(w, http.StatusForbidden, "O dono do grupo não pode sair.")
+			case apperrors.IsNotFound(err):
+				writeError(w, http.StatusNotFound, "Participacao no grupo não encontrada.")
+			default:
+				writeError(w, http.StatusInternalServerError, "Não foi possivel sair do grupo.")
+			}
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]string{
+			"status": "left",
+		})
+	}
+}
+
+func RemoveGroupMemberHandler(cfg config.Config, groups usecase.GroupUsecase) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID, err := userIDFromRequest(r, cfg)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "Informe um token de autenticacao valido.")
+			return
+		}
+
+		if err := groups.RemoveMember(r.Context(), ownerID, r.PathValue("groupID"), r.PathValue("userID")); err != nil {
+			if apperrors.IsNotFound(err) {
+				writeError(w, http.StatusNotFound, "Participante não encontrado.")
+				return
+			}
+
+			writeError(w, http.StatusInternalServerError, "Não foi possivel remover o participante.")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]string{
+			"status": "removed",
 		})
 	}
 }

@@ -1,10 +1,11 @@
 import { StatusBar } from 'expo-status-bar';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BackButton } from '../../../shared/components/BackButton';
 import { GroupAdminForm } from '../components/admin/GroupAdminForm';
 import { GroupAdminHeader } from '../components/admin/GroupAdminHeader';
+import { GroupAdminMembers } from '../components/admin/GroupAdminMembers';
 import { GroupAdminRequests } from '../components/admin/GroupAdminRequests';
 import { useGroupAdminScreen } from '../hooks/useGroupAdminScreen';
 import type { Group } from '../services/groups';
@@ -21,12 +22,16 @@ export function GroupAdminScreen({ group, onBack, onGroupUpdated }: GroupAdminSc
     description,
     error,
     hasUnlimitedParticipants,
+    isLoadingMembers,
     isLoadingRequests,
     isPrivate,
     isSaving,
+    loadMembers,
     loadRequests,
+    members,
     name,
     participantLimit,
+    removingUserID,
     requests,
     setDescription,
     setHasUnlimitedParticipants,
@@ -35,8 +40,22 @@ export function GroupAdminScreen({ group, onBack, onGroupUpdated }: GroupAdminSc
     setParticipantLimit,
     successMessage,
     handleApprove,
+    handleRemoveMember,
     handleSaveGroup,
   } = useGroupAdminScreen(group, onGroupUpdated, onBack);
+
+  function confirmRemoveMember(member: (typeof members)[number]) {
+    const name = member.display_name || `Usuário ${member.user_id.slice(0, 8)}`;
+
+    Alert.alert(
+      'Remover participante',
+      `Você tem certeza que deseja remover ${name} deste grupo?`,
+      [
+        { style: 'cancel', text: 'Cancelar' },
+        { onPress: () => handleRemoveMember(member), style: 'destructive', text: 'Remover' },
+      ],
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -70,6 +89,14 @@ export function GroupAdminScreen({ group, onBack, onGroupUpdated }: GroupAdminSc
           loadRequests={loadRequests}
           onApprove={handleApprove}
           requests={requests}
+        />
+
+        <GroupAdminMembers
+          isLoadingMembers={isLoadingMembers}
+          loadMembers={loadMembers}
+          members={members}
+          onRemove={confirmRemoveMember}
+          removingUserID={removingUserID}
         />
       </ScrollView>
     </SafeAreaView>

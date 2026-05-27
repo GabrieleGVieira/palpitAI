@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { savePrediction, type Group, type GroupMatch } from '../services/groups';
+import { leaveGroup, savePrediction, type Group, type GroupMatch } from '../services/groups';
 import type { RealtimeEvent } from '../../realtime/types';
 import type { GroupDetailTab } from '../types';
 import { notificationMessageFromEvent } from '../../realtime/notifications';
@@ -10,7 +10,7 @@ import { useGroupRanking } from './useGroupRanking';
 import { useRealtimeEvents } from '../../realtime/useRealtimeEvents';
 import { useTemporaryNotification } from '../../../shared/hooks/useTemporaryNotification';
 
-export function useGroupDetailScreen(group: Group) {
+export function useGroupDetailScreen(group: Group, onGroupLeft: () => void) {
   const [activeTab, setActiveTab] = useState<GroupDetailTab>('matches');
   const [savingMatchID, setSavingMatchID] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -38,6 +38,13 @@ export function useGroupDetailScreen(group: Group) {
     }) => savePrediction(group.id, matchID, payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['groups', group.id, 'ranking'] });
+      await queryClient.invalidateQueries({ queryKey: ['me', 'score'] });
+    },
+  });
+  const leaveGroupMutation = useMutation({
+    mutationFn: () => leaveGroup(group.id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['groups'] });
       await queryClient.invalidateQueries({ queryKey: ['me', 'score'] });
     },
   });
@@ -104,12 +111,26 @@ export function useGroupDetailScreen(group: Group) {
     }
   }
 
+  async function handleLeaveGroup() {
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await leaveGroupMutation.mutateAsync();
+      onGroupLeft();
+    } catch (leaveError) {
+      setError(errorMessage(leaveError, 'Não foi possível sair do grupo.'));
+    }
+  }
+
   return {
     activeTab,
     drafts,
     error,
     isLoading,
     isLoadingRanking,
+    isLeavingGroup: leaveGroupMutation.isPending,
+    leaveGroup: handleLeaveGroup,
     loadMatches,
     loadRanking,
     matches,
