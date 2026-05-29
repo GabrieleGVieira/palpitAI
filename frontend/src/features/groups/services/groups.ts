@@ -97,6 +97,16 @@ export async function removeGroupMember(groupID: string, userID: string) {
   });
 }
 
+export async function transferGroupOwnership(groupID: string, userID: string) {
+  await apiClient<Record<string, string>>(
+    `/api/v1/groups/${groupID}/members/${userID}/transfer-ownership`,
+    {
+      fallbackError: 'Não foi possivel transferir a propriedade do grupo.',
+      method: 'POST',
+    },
+  );
+}
+
 export async function leaveGroup(groupID: string) {
   await apiClient<Record<string, string>>(`/api/v1/groups/${groupID}/membership`, {
     fallbackError: 'Não foi possivel sair do grupo.',

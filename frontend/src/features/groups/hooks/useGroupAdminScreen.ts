@@ -6,6 +6,7 @@ import {
   listGroupMembers,
   listJoinRequests,
   removeGroupMember,
+  transferGroupOwnership,
   updateGroup,
   type Group,
   type GroupMember,
@@ -31,6 +32,7 @@ export function useGroupAdminScreen(
   );
   const [approvingUserID, setApprovingUserID] = useState<string | null>(null);
   const [removingUserID, setRemovingUserID] = useState<string | null>(null);
+  const [transferringOwnerUserID, setTransferringOwnerUserID] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -63,6 +65,13 @@ export function useGroupAdminScreen(
       await queryClient.invalidateQueries({ queryKey: ['groups'] });
       await queryClient.invalidateQueries({ queryKey: ['groups', group.id, 'members'] });
       await queryClient.invalidateQueries({ queryKey: ['groups', group.id, 'ranking'] });
+    },
+  });
+  const transferOwnershipMutation = useMutation({
+    mutationFn: (userID: string) => transferGroupOwnership(group.id, userID),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['groups'] });
+      await queryClient.invalidateQueries({ queryKey: ['groups', group.id, 'members'] });
     },
   });
 
@@ -155,6 +164,27 @@ export function useGroupAdminScreen(
     }
   }
 
+  async function handleTransferOwnership(member: GroupMember) {
+    setError(null);
+    setSuccessMessage(null);
+    setTransferringOwnerUserID(member.user_id);
+
+    try {
+      await transferOwnershipMutation.mutateAsync(member.user_id);
+      onGroupUpdated({
+        ...group,
+        owner_id: member.user_id,
+        role: 'member',
+      });
+      setSuccessMessage('Propriedade do grupo transferida.');
+      onBack();
+    } catch (transferError) {
+      setError(queryErrorMessage(transferError, 'Não foi possível transferir a propriedade.'));
+    } finally {
+      setTransferringOwnerUserID(null);
+    }
+  }
+
   return {
     approvingUserID,
     description,
@@ -184,9 +214,11 @@ export function useGroupAdminScreen(
     setParticipantLimit,
     setSuccessMessage,
     successMessage,
+    transferringOwnerUserID,
     handleApprove,
     handleRemoveMember,
     handleSaveGroup,
+    handleTransferOwnership,
   };
 }
 

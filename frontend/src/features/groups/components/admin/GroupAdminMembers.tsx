@@ -10,7 +10,9 @@ type GroupAdminMembersProps = {
   loadMembers: () => void;
   members: GroupMember[];
   onRemove: (member: GroupMember) => void;
+  onTransferOwnership: (member: GroupMember) => void;
   removingUserID: string | null;
+  transferringOwnerUserID: string | null;
 };
 
 export function GroupAdminMembers({
@@ -18,7 +20,9 @@ export function GroupAdminMembers({
   loadMembers,
   members,
   onRemove,
+  onTransferOwnership,
   removingUserID,
+  transferringOwnerUserID,
 }: GroupAdminMembersProps) {
   return (
     <View style={styles.card}>
@@ -53,12 +57,20 @@ export function GroupAdminMembers({
             {isOwner ? (
               <Text style={styles.ownerBadge}>Owner</Text>
             ) : (
-              <FinishButton
-                isLoading={removingUserID === member.user_id}
-                loadingLabel="Removendo..."
-                onPress={() => onRemove(member)}
-                waitingLabel="Remover"
-              />
+              <View style={styles.memberActions}>
+                <FinishButton
+                  isLoading={transferringOwnerUserID === member.user_id}
+                  loadingLabel="Transferindo..."
+                  onPress={() => onTransferOwnership(member)}
+                  waitingLabel="Tornar dono"
+                />
+                <FinishButton
+                  isLoading={removingUserID === member.user_id}
+                  loadingLabel="Removendo..."
+                  onPress={() => onRemove(member)}
+                  waitingLabel="Remover"
+                />
+              </View>
             )}
           </View>
         );
@@ -115,6 +127,9 @@ const styles = StyleSheet.create({
   },
   memberInfo: {
     flex: 1,
+  },
+  memberActions: {
+    gap: 8,
   },
   memberName: {
     color: '#183f2d',

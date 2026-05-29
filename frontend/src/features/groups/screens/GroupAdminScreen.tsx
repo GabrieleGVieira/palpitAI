@@ -39,9 +39,11 @@ export function GroupAdminScreen({ group, onBack, onGroupUpdated }: GroupAdminSc
     setName,
     setParticipantLimit,
     successMessage,
+    transferringOwnerUserID,
     handleApprove,
     handleRemoveMember,
     handleSaveGroup,
+    handleTransferOwnership,
   } = useGroupAdminScreen(group, onGroupUpdated, onBack);
 
   function confirmRemoveMember(member: (typeof members)[number]) {
@@ -53,6 +55,19 @@ export function GroupAdminScreen({ group, onBack, onGroupUpdated }: GroupAdminSc
       [
         { style: 'cancel', text: 'Cancelar' },
         { onPress: () => handleRemoveMember(member), style: 'destructive', text: 'Remover' },
+      ],
+    );
+  }
+
+  function confirmTransferOwnership(member: (typeof members)[number]) {
+    const name = member.display_name || `Usuário ${member.user_id.slice(0, 8)}`;
+
+    Alert.alert(
+      'Transferir propriedade',
+      `Você tem certeza que deseja tornar ${name} dono deste grupo? Você deixará de administrar o grupo.`,
+      [
+        { style: 'cancel', text: 'Cancelar' },
+        { onPress: () => handleTransferOwnership(member), text: 'Transferir' },
       ],
     );
   }
@@ -96,7 +111,9 @@ export function GroupAdminScreen({ group, onBack, onGroupUpdated }: GroupAdminSc
           loadMembers={loadMembers}
           members={members}
           onRemove={confirmRemoveMember}
+          onTransferOwnership={confirmTransferOwnership}
           removingUserID={removingUserID}
+          transferringOwnerUserID={transferringOwnerUserID}
         />
       </ScrollView>
     </SafeAreaView>

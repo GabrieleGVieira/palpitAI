@@ -157,3 +157,15 @@ func TestGetMatchPredictionRouteRequiresAuth(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
 	}
 }
+
+func TestDeleteMeRouteRequiresAuth(t *testing.T) {
+	router := NewRouter(config.Config{Env: "test", Port: "3000"}, fakeDB{})
+	request := httptest.NewRequest(http.MethodDelete, "/api/v1/me", nil)
+	response := httptest.NewRecorder()
+
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, response.Code)
+	}
+}

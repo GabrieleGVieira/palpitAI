@@ -25,7 +25,7 @@ func ListActiveUserGroups(ctx context.Context, db Querier, userID string) ([]dto
 	rows, err := db.Query(ctx, `
 		select
 			g.id,
-			g.owner_id,
+			case when owner_member.status = 'deleted' then '' else g.owner_id::text end as owner_id,
 			g.name,
 			g.description,
 			g.match_scope,
@@ -40,6 +40,8 @@ func ListActiveUserGroups(ctx context.Context, db Querier, userID string) ([]dto
 			count(distinct pending_members.user_id)::int as pending_requests_count
 		from groups g
 		join group_members gm on gm.group_id = g.id and gm.user_id = $1 and gm.status = 'active'
+		left join group_members owner_member on owner_member.group_id = g.id
+			and owner_member.user_id = g.owner_id
 		left join group_members all_members on all_members.group_id = g.id and all_members.status = 'active'
 		left join group_members pending_members on pending_members.group_id = g.id and pending_members.status = 'pending'
 		group by
@@ -54,7 +56,8 @@ func ListActiveUserGroups(ctx context.Context, db Querier, userID string) ([]dto
 			g.invite_code,
 			g.created_at,
 			gm.role,
-			gm.status
+			gm.status,
+			owner_member.status
 		order by g.created_at desc
 	`, userID)
 	if err != nil {
@@ -115,7 +118,7 @@ func GroupListItemByID(ctx context.Context, db Querier, groupID string) (dto.Gro
 	err := db.QueryRow(ctx, `
 		select
 			g.id,
-			g.owner_id,
+			case when owner_member.status = 'deleted' then '' else g.owner_id::text end as owner_id,
 			g.name,
 			g.description,
 			g.match_scope,
@@ -127,6 +130,8 @@ func GroupListItemByID(ctx context.Context, db Querier, groupID string) (dto.Gro
 			count(distinct all_members.user_id)::int as member_count,
 			count(distinct pending_members.user_id)::int as pending_requests_count
 		from groups g
+		left join group_members owner_member on owner_member.group_id = g.id
+			and owner_member.user_id = g.owner_id
 		left join group_members all_members on all_members.group_id = g.id and all_members.status = 'active'
 		left join group_members pending_members on pending_members.group_id = g.id and pending_members.status = 'pending'
 		where g.id = $1
@@ -140,7 +145,8 @@ func GroupListItemByID(ctx context.Context, db Querier, groupID string) (dto.Gro
 			g.participant_limit,
 			g.is_private,
 			g.invite_code,
-			g.created_at
+			g.created_at,
+			owner_member.status
 	`, groupID).Scan(
 		&group.ID,
 		&group.OwnerID,

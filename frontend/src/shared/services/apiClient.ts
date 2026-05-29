@@ -35,7 +35,8 @@ export async function apiClient<T>(path: string, options: RequestOptions<T>): Pr
         ...options.headers,
       },
     });
-  } catch {
+  } catch (err) {
+    console.log(err)
     throw new Error(
       'Não foi possível carregar as informações agora. Tente novamente em instantes.',
     );

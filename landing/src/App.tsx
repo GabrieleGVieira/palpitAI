@@ -32,6 +32,16 @@ export default function App() {
     );
   }
 
+  if (path === '/account-deletion') {
+    return (
+      <>
+        <Header />
+        <LegalPage type="accountDeletion" />
+        <Footer />
+      </>
+    );
+  }
+
   return (
     <>
       <Header />

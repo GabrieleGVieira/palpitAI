@@ -14,6 +14,9 @@ export function LegalLinksCard() {
       <Pressable onPress={() => openExternalUrl(LEGAL_URLS.privacy)} style={styles.row}>
         <Text style={styles.linkText}>Política de Privacidade</Text>
       </Pressable>
+      <Pressable onPress={() => openExternalUrl(LEGAL_URLS.accountDeletion)} style={styles.row}>
+        <Text style={styles.linkText}>Exclusão de Conta e Dados</Text>
+      </Pressable>
     </View>
   );
 }

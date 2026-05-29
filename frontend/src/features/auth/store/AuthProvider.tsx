@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session, User } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
@@ -101,10 +102,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
         try {
           await signOut();
-          queryClient.clear();
         } catch (authError) {
           setError(getAuthErrorMessage(authError));
         } finally {
+          await AsyncStorage.clear();
+          setSession(null);
+          queryClient.clear();
           setIsSubmitting(false);
         }
       },

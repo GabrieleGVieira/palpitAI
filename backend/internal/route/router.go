@@ -22,6 +22,7 @@ func NewRouter(cfg config.Config, db usecase.Datastore, services ...Services) ht
 		realtimeHub = services[0].Realtime
 		redis = services[0].Redis
 	}
+	accounts := usecase.NewAccountUsecase(db)
 	groups := usecase.NewGroupUsecase(db)
 	predictions := usecase.NewPredictionUsecase(db)
 	predictionReader := predictionservice.NewPredictionReadService(db)
@@ -29,6 +30,7 @@ func NewRouter(cfg config.Config, db usecase.Datastore, services ...Services) ht
 	mux.HandleFunc("GET /health", controller.HealthHandler(db, redis))
 	mux.HandleFunc("GET /ws", controller.RealtimeHandler(cfg, db, realtimeHub))
 	mux.HandleFunc("GET /api/v1/status", controller.StatusHandler(cfg, db, redis))
+	mux.HandleFunc("DELETE /api/v1/me", controller.DeleteAccountHandler(cfg, accounts))
 	mux.HandleFunc("GET /api/v1/me/score", controller.UserScoreHandler(cfg, predictions))
 	mux.HandleFunc("GET /api/v1/matches/{matchID}/prediction", controller.GetMatchPredictionHandler(cfg, predictionReader))
 	mux.HandleFunc("GET /api/v1/groups", controller.ListGroupsHandler(cfg, groups))
@@ -38,6 +40,7 @@ func NewRouter(cfg config.Config, db usecase.Datastore, services ...Services) ht
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/join-requests", controller.ListJoinRequestsHandler(cfg, groups))
 	mux.HandleFunc("POST /api/v1/groups/{groupID}/join-requests/{userID}/approve", controller.ApproveJoinRequestHandler(cfg, groups))
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/members", controller.ListGroupMembersHandler(cfg, groups))
+	mux.HandleFunc("POST /api/v1/groups/{groupID}/members/{userID}/transfer-ownership", controller.TransferGroupOwnershipHandler(cfg, groups))
 	mux.HandleFunc("DELETE /api/v1/groups/{groupID}/members/{userID}", controller.RemoveGroupMemberHandler(cfg, groups))
 	mux.HandleFunc("DELETE /api/v1/groups/{groupID}/membership", controller.LeaveGroupHandler(cfg, groups))
 	mux.HandleFunc("GET /api/v1/groups/{groupID}/matches", controller.ListGroupMatchesHandler(cfg, predictions))

@@ -40,6 +40,7 @@ DATABASE_URL=postgresql://postgres:password@db.project.supabase.co:5432/postgres
 REDIS_URL=redis://default:token@host.upstash.io:6379
 SUPABASE_URL=https://project.supabase.co
 SUPABASE_KEY=chave_publica
+SUPABASE_SERVICE_ROLE_KEY=chave_service_role_para_excluir_auth_opcional
 FOOTBALL_DATA_API_BASE_URL=https://api.football-data.org/v4
 FOOTBALL_DATA_COMPETITION_CODE=WC
 FOOTBALL_DATA_SEASON=2026
@@ -128,6 +129,7 @@ backend/
 GET  /health
 GET  /ws
 GET  /api/v1/status
+DELETE /api/v1/me
 GET  /api/v1/me/score
 GET  /api/v1/groups
 POST /api/v1/groups

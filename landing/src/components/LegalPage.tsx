@@ -180,7 +180,78 @@ const termsSections: LegalSection[] = [
   },
 ];
 
+const accountDeletionSections: LegalSection[] = [
+  {
+    title: 'Como solicitar a exclusão da conta',
+    paragraphs: ['Pelo aplicativo:'],
+    bullets: [
+      'Faça login no PalpitAI.',
+      'Acesse Perfil.',
+      'Entre em Configurações.',
+      'Selecione “Excluir conta”.',
+      'Leia as informações apresentadas.',
+      'Se você for dono de algum grupo, transfira a propriedade para outro participante antes de continuar.',
+      'Confirme a exclusão da conta digitando a confirmação solicitada.',
+    ],
+  },
+  {
+    title: 'Caso não consiga acessar sua conta',
+    paragraphs: [
+      'Envie uma solicitação para gabrielevieira011@gmail.com informando o e-mail utilizado no cadastro.',
+    ],
+  },
+  {
+    title: 'Dados excluídos',
+    bullets: [
+      'dados de perfil',
+      'nome de exibição',
+      'e-mail associado à conta',
+      'avatar/foto de perfil',
+      'preferências pessoais',
+      'vínculos pessoais com grupos e bolões',
+      'dados de autenticação associados ao usuário, quando aplicável',
+    ],
+  },
+  {
+    title: 'Dados que podem ser mantidos',
+    paragraphs: [
+      'Alguns registros técnicos ou históricos podem ser mantidos temporariamente quando necessário para:',
+    ],
+    bullets: [
+      'cumprimento de obrigações legais',
+      'prevenção de fraudes',
+      'segurança da plataforma',
+      'resolução de disputas',
+      'manutenção da integridade histórica de bolões, rankings e resultados',
+    ],
+  },
+  {
+    title: 'Anonimização',
+    paragraphs: [
+      'Quando necessário, esses dados serão anonimizados para não identificar diretamente o usuário.',
+    ],
+  },
+  {
+    title: 'Prazo',
+    paragraphs: [
+      'A solicitação de exclusão será processada em até 30 dias.',
+      'Registros que precisem ser mantidos por obrigação legal poderão permanecer armazenados pelo período exigido pela legislação aplicável.',
+    ],
+  },
+  {
+    title: 'Contato',
+    paragraphs: ['gabrielevieira011@gmail.com'],
+  },
+];
+
 const pageContent = {
+  accountDeletion: {
+    title: 'Exclusão de Conta e Dados – PalpitAI',
+    updatedAt: 'Última atualização: 29 de maio de 2026',
+    intro:
+      'O PalpitAI respeita a privacidade dos usuários e permite que você solicite a exclusão da sua conta e dos dados associados.',
+    sections: accountDeletionSections,
+  },
   privacy: {
     title: 'Política de Privacidade – PalpitAI',
     updatedAt: 'Última atualização: 29 de maio de 2026',
@@ -206,6 +277,7 @@ export default function LegalPage({ type }: { type: keyof typeof pageContent }) 
           <p className="eyebrow">Legal</p>
           <h1>{content.title}</h1>
           <p>{content.updatedAt}</p>
+          {'intro' in content ? <p>{content.intro}</p> : null}
         </header>
 
         <div className="legal-content">

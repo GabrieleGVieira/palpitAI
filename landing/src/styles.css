@@ -249,10 +249,10 @@ h3 {
   max-width: 520px;
   margin: 12px 0 8px;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.6rem;
 }
 
-.legal-notice a,
+.legal-notice a, 
 .footer-links a,
 .legal-back-link {
   color: var(--primary);

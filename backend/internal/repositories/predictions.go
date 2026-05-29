@@ -27,15 +27,15 @@ func GroupRanking(ctx context.Context, db Querier, groupID string) ([]dto.Rankin
 	rows, err := db.Query(ctx, `
 		with scores as (
 			select
-				gm.user_id,
-				gm.display_name,
+				case when gm.status = 'deleted' then '' else gm.user_id::text end as user_id,
+				case when gm.status = 'deleted' then 'Usuário excluído' else gm.display_name end as display_name,
 				coalesce(sum(p.points), 0)::int as total_points
 			from group_members gm
 			left join predictions p on p.group_id = gm.group_id
 				and p.user_id = gm.user_id
 			where gm.group_id = $1
-				and gm.status = 'active'
-			group by gm.user_id, gm.display_name
+				and gm.status in ('active', 'deleted')
+			group by gm.user_id, gm.display_name, gm.status
 		)
 		select
 			rank() over (order by total_points desc, display_name asc)::int as position,

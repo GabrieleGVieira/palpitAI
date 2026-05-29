@@ -63,6 +63,10 @@ func (uc GroupUsecase) RemoveMember(ctx context.Context, ownerID string, groupID
 	return RemoveMember(ctx, uc.db, ownerID, groupID, memberID)
 }
 
+func (uc GroupUsecase) TransferOwnership(ctx context.Context, ownerID string, groupID string, nextOwnerID string) error {
+	return TransferOwnership(ctx, uc.db, ownerID, groupID, nextOwnerID)
+}
+
 func ListGroups(ctx context.Context, db Datastore, userID string) ([]dto.GroupListItemResponse, error) {
 	return repositories.ListActiveUserGroups(ctx, db, userID)
 }
@@ -166,6 +170,15 @@ func LeaveGroup(ctx context.Context, db Datastore, userID string, groupID string
 
 func RemoveMember(ctx context.Context, db Datastore, ownerID string, groupID string, memberID string) error {
 	err := repositories.DeleteGroupMemberByOwner(ctx, db, ownerID, groupID, memberID)
+	if errors.Is(err, repositories.ErrNotFound) {
+		return ErrGroupNotFound
+	}
+
+	return err
+}
+
+func TransferOwnership(ctx context.Context, db Datastore, ownerID string, groupID string, nextOwnerID string) error {
+	err := repositories.TransferGroupOwnership(ctx, db, ownerID, groupID, nextOwnerID)
 	if errors.Is(err, repositories.ErrNotFound) {
 		return ErrGroupNotFound
 	}

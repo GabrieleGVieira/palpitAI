@@ -77,6 +77,10 @@ src/
 4. Telas das features usam hooks e services para buscar e mutar dados
 5. Eventos WebSocket invalidam queries e exibem notificações sem refresh manual
 
+## Exclusão de conta
+
+O usuário autenticado pode solicitar a exclusão em Perfil > Configurações > Excluir conta. O app exige a confirmação digitada `EXCLUIR`, chama `DELETE /api/v1/me`, encerra a sessão e volta para o fluxo de login.
+
 ## Qualidade
 
 ```bash

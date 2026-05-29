@@ -247,3 +247,27 @@ func RemoveGroupMemberHandler(cfg config.Config, groups usecase.GroupUsecase) ht
 		})
 	}
 }
+
+func TransferGroupOwnershipHandler(cfg config.Config, groups usecase.GroupUsecase) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ownerID, err := userIDFromRequest(r, cfg)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "Informe um token de autenticacao valido.")
+			return
+		}
+
+		if err := groups.TransferOwnership(r.Context(), ownerID, r.PathValue("groupID"), r.PathValue("userID")); err != nil {
+			if apperrors.IsNotFound(err) {
+				writeError(w, http.StatusNotFound, "Participante não encontrado.")
+				return
+			}
+
+			writeError(w, http.StatusInternalServerError, "Não foi possivel transferir a propriedade do grupo.")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]string{
+			"status": "transferred",
+		})
+	}
+}

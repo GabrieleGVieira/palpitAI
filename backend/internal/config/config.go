@@ -29,6 +29,7 @@ type Config struct {
 	Port                           string
 	RedisURL                       string
 	SupabaseKey                    string
+	SupabaseServiceRoleKey         string
 	SupabaseURL                    string
 }
 
@@ -58,6 +59,7 @@ func Load() Config {
 		Port:                           getEnv("PORT", "3000"),
 		RedisURL:                       getEnv("REDIS_URL", ""),
 		SupabaseKey:                    getEnv("SUPABASE_KEY", ""),
+		SupabaseServiceRoleKey:         getEnv("SUPABASE_SERVICE_ROLE_KEY", ""),
 		SupabaseURL:                    getEnv("SUPABASE_URL", ""),
 	}
 }

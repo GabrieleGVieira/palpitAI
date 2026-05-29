@@ -35,6 +35,10 @@ VITE_BASE_PATH=/nome-do-repositorio/ npm run build
 
 O diretório gerado para publicação é `landing/dist`.
 
+## Páginas públicas
+
+A landing expõe `/privacy`, `/terms` e `/account-deletion`. A página `/account-deletion` descreve o fluxo de exclusão de conta e dados do PalpitAI para uso no Google Play Console.
+
 ## Integrações futuras
 
 O formulário Android salva cadastros temporariamente em `localStorage`. A função

@@ -1,7 +1,11 @@
 import { StatusBar } from 'expo-status-bar';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
 
+import { AccountSettingsCard } from '../../account/components/AccountSettingsCard';
+import { DeleteAccountModal } from '../../account/components/DeleteAccountModal';
+import { deleteAccount } from '../../account/services/account';
 import { NotificationBanner } from '../../../shared/components/NotificationBanner';
 import { LegalLinksCard } from '../../../shared/components/LegalLinksCard';
 import { useAuth } from '../../auth/hooks/useAuth';
@@ -21,6 +25,9 @@ type HomeScreenProps = {
 
 export function HomeScreen({ onCreateGroup, onOpenGroup }: HomeScreenProps) {
   const { isSubmitting, logout, user } = useAuth();
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
   const userName = user?.user_metadata.full_name as string | undefined;
   const {
     groups,
@@ -38,6 +45,27 @@ export function HomeScreen({ onCreateGroup, onOpenGroup }: HomeScreenProps) {
     refreshHome,
     handleJoinGroup,
   } = useHomeScreen();
+
+  async function handleDeleteAccount() {
+    setDeleteAccountError(null);
+    setIsDeletingAccount(true);
+
+    try {
+      await deleteAccount();
+      setIsDeleteModalVisible(false);
+      await logout();
+      Alert.alert(
+        'Conta excluída',
+        'Sua solicitação foi recebida. A exclusão e anonimização dos dados será processada em até 30 dias.',
+      );
+    } catch (error) {
+      setDeleteAccountError(
+        error instanceof Error ? error.message : 'Não foi possível excluir sua conta agora.',
+      );
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -77,7 +105,22 @@ export function HomeScreen({ onCreateGroup, onOpenGroup }: HomeScreenProps) {
         />
 
         <LegalLinksCard />
+
+        <AccountSettingsCard
+          onDeleteAccount={() => {
+            setDeleteAccountError(null);
+            setIsDeleteModalVisible(true);
+          }}
+        />
       </ScrollView>
+
+      <DeleteAccountModal
+        error={deleteAccountError}
+        isDeleting={isDeletingAccount}
+        onClose={() => setIsDeleteModalVisible(false)}
+        onConfirm={handleDeleteAccount}
+        visible={isDeleteModalVisible}
+      />
     </SafeAreaView>
   );
 }

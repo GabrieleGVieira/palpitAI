@@ -168,6 +168,47 @@ func DeleteGroupMemberByOwner(ctx context.Context, db Querier, ownerID string, g
 	return err
 }
 
+func TransferGroupOwnership(ctx context.Context, db Querier, currentOwnerID string, groupID string, nextOwnerID string) error {
+	var transferredGroupID string
+	err := db.QueryRow(ctx, `
+		with target_member as (
+			select gm.group_id, gm.user_id
+			from group_members gm
+			join groups g on g.id = gm.group_id
+			where gm.group_id = $1
+				and g.owner_id = $2
+				and gm.user_id = $3
+				and gm.status = 'active'
+				and gm.role = 'member'
+			for update
+		),
+		updated_group as (
+			update groups
+			set owner_id = $3, updated_at = now()
+			where id = (select group_id from target_member)
+			returning id
+		),
+		updated_old_owner as (
+			update group_members
+			set role = 'member'
+			where group_id = (select id from updated_group)
+				and user_id = $2
+		),
+		updated_new_owner as (
+			update group_members
+			set role = 'owner'
+			where group_id = (select id from updated_group)
+				and user_id = $3
+		)
+		select id from updated_group
+	`, groupID, currentOwnerID, nextOwnerID).Scan(&transferredGroupID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+
+	return err
+}
+
 func ActiveGroupMemberExists(ctx context.Context, db Querier, userID string, groupID string) (bool, error) {
 	var exists bool
 	err := db.QueryRow(ctx, `
