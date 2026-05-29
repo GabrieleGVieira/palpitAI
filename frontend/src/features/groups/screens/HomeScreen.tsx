@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { NotificationBanner } from '../../../shared/components/NotificationBanner';
+import { LegalLinksCard } from '../../../shared/components/LegalLinksCard';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useHomeScreen } from '../hooks/useHomeScreen';
 import { GroupListSection } from '../components/group-details/GroupListSection';
@@ -74,6 +75,8 @@ export function HomeScreen({ onCreateGroup, onOpenGroup }: HomeScreenProps) {
           onRefresh={refreshHome}
           onOpenGroup={onOpenGroup}
         />
+
+        <LegalLinksCard />
       </ScrollView>
     </SafeAreaView>
   );

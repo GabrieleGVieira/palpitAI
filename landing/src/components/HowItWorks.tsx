@@ -7,7 +7,7 @@ const steps = [
   {
     title: 'Faça palpites',
     text: 'Palpite em partidas e competições.',
-    image: '/onboarding-live.png',
+    image: '/make-predictions.png',
   },
   {
     title: 'Ganhe pontos',

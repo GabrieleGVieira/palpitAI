@@ -1,3 +1,5 @@
+import LegalNotice from './LegalNotice';
+
 export default function Hero() {
   return (
     <section className="hero-section" id="top" aria-labelledby="hero-title">
@@ -18,6 +20,7 @@ export default function Hero() {
               iPhone em breve
             </button>
           </div>
+          <LegalNotice />
           <p className="button-note">Versão para iPhone será liberada em breve.</p>
           <p className="iphone-note">Estamos preparando a melhor experiência para iPhone.</p>
         </div>

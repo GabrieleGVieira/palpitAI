@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSignupScreen } from '../hooks/useSignupScreen';
 import { Footer } from '../../../shared/components/Footer';
 import { Header } from '../../../shared/components/Header';
+import { LegalConsentText } from '../../../shared/components/LegalConsentText';
 import { SignupForm } from '../components/SignupForm';
 import { BackButton } from '../../../shared/components/BackButton';
 
@@ -66,6 +67,8 @@ export function SignupScreen({ onBackToLogin }: SignupScreenProps) {
             handleSignup={handleSignup}
             onBackToLogin={onBackToLogin}
           />
+
+          <LegalConsentText />
 
           <Footer
             question="Já tem uma conta?"

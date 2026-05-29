@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLoginScreen } from '../hooks/useLoginScreen';
 import { Footer } from '../../../shared/components/Footer';
 import { Header } from '../../../shared/components/Header';
+import { LegalConsentText } from '../../../shared/components/LegalConsentText';
 import { LoginForm } from '../components/LoginForm';
 
 type LoginScreenProps = {
@@ -58,6 +59,8 @@ export function LoginScreen({ onCreateAccount }: LoginScreenProps) {
             email={email}
             password={password}
           />
+
+          <LegalConsentText />
 
           <Footer
             question="Ainda não tem conta?"

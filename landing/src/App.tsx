@@ -4,9 +4,33 @@ import Footer from './components/Footer';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import HowItWorks from './components/HowItWorks';
+import LegalNotice from './components/LegalNotice';
+import LegalPage from './components/LegalPage';
 import TesterForm from './components/TesterForm';
 
 export default function App() {
+  const path = window.location.pathname.replace(/\/$/, '');
+
+  if (path === '/privacy') {
+    return (
+      <>
+        <Header />
+        <LegalPage type="privacy" />
+        <Footer />
+      </>
+    );
+  }
+
+  if (path === '/terms') {
+    return (
+      <>
+        <Header />
+        <LegalPage type="terms" />
+        <Footer />
+      </>
+    );
+  }
+
   return (
     <>
       <Header />
@@ -29,6 +53,7 @@ export default function App() {
               </p>
             </div>
             <TesterForm />
+            <LegalNotice className="testing-legal-notice" />
           </div>
         </section>
         <FAQ />
